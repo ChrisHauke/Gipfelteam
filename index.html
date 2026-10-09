@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Gipfelteam</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -48,7 +48,8 @@ img{max-width:100%}
   --accent:#7cc287; --accent-fg:#0e1a10; --soft:#223225; --danger:#ef826b; --warn:#e0a84a; --accent-soft:#3a5a3f;
   --pa:#7ea6f0; --pa-soft:#1f2a40; --pb:#f0926d; --pb-soft:#3a2620; --pab:#b597ea; --pab-soft:#2d2440; color-scheme:dark}
 [hidden]{display:none!important}
-html,body{height:100%}
+html,body{height:100%;touch-action:manipulation}
+button,a,input,select,textarea,label,[role="button"]{touch-action:manipulation}
 body{background:var(--bg);color:var(--fg);font:16px/1.45 var(--body);-webkit-tap-highlight-color:transparent}
 button{font-family:inherit}
 .wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:20px calc(var(--tabh) + 150px)}
