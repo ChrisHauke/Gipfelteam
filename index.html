@@ -399,7 +399,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     </div>
     <div class="sec-title" style="margin-top:24px">Letzte 6 Monate</div>
     <div class="chart" id="cChart"></div>
-    <div class="sec-title" style="margin-top:24px">Wofür ihr ausgebt</div>
+    <div class="sec-title" style="margin-top:24px" id="cCatsTitle" hidden>Wofür ihr ausgebt</div>
     <div id="cCats"></div>
     <div class="sec-title" style="margin-top:24px" id="cStoresTitle">Nach Laden</div>
     <div id="cStores"></div>
@@ -478,14 +478,6 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 <div class="scrim" id="expScrim" hidden>
   <form class="sheet" id="expForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="expHead">
     <h3 id="expHead">Neue Ausgabe</h3>
-    <div id="scanBox" hidden>
-      <label class="scanbtn" id="scanBtn" for="xPhoto">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span id="scanLbl">Kassenbon fotografieren</span>
-      </label>
-      <input type="file" id="xPhoto" accept="image/*" hidden>
-      <p class="formhint" id="scanStatus" hidden></p>
-    </div>
     <div class="field"><label for="xAmount">Betrag in €</label><input id="xAmount" class="amount-in" inputmode="decimal" placeholder="0,00"></div>
     <div class="field"><label for="xStore">Laden</label>
       <div class="storechips" id="xStores"></div>
@@ -577,6 +569,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     <div class="field"><span class="lbl">Einladungslink</span>
       <div class="invite"><input id="inviteLink" readonly aria-label="Einladungslink"><button class="secondary" type="button" id="copyInvite">Kopieren</button></div>
       <p class="small">Nur für euch zwei. Wer diesen Link hat, kann alles in Gipfelteam sehen und bearbeiten.</p>
+      <p class="small">App-Version: 09.10.2026 20:54</p>
     </div>
     <p class="err" id="sErr" hidden></p>
     <div class="actions">
@@ -1082,8 +1075,9 @@ function renderCost(){
     const rest=e.cents-itemSum; if (Math.abs(rest)>=1){ cat.sonst=(cat.sonst||0)+rest; }
   }
   const crow=Object.entries(cat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  $("cCatsTitle").hidden=!crow.length;
   if (!crow.length){
-    $("cCats").innerHTML=`<div class="hint">Fotografiert beim Erfassen einer Ausgabe den Kassenbon. Dann seht ihr hier, wie viel davon auf Obst & Gemüse, Fleisch, Süßes oder Drogerie entfällt.</div>`;
+    $("cCats").innerHTML="";
   } else {
     const cmax=Math.max(...crow.map(r=>r[1]), unsplit, 1);
     $("cCats").innerHTML=`<div class="stores cats">${crow.map(([k,v])=>{
@@ -1129,50 +1123,7 @@ $("xItems").addEventListener("change", e=>{ const sel=e.target.closest("[data-xc
 $("xItems").addEventListener("click", e=>{ const b=e.target.closest("[data-xrm]"); if(b){ xItems.splice(+b.dataset.xrm,1); renderXItems(); } });
 $("xAmount").addEventListener("input", ()=>{ if (xItems.length) renderXItems(); });
 
-/* receipt reading via Claude (only where the page may send images) */
-let sampleApi=null;
-async function downscale(file){
-  try{
-    const bmp=await createImageBitmap(file);
-    const k=Math.min(1, 1600/Math.max(bmp.width,bmp.height));
-    const c=document.createElement("canvas"); c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k);
-    c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
-    return await new Promise(r=>c.toBlob(b=>r(b||file),"image/jpeg",0.85));
-  }catch(e){ return file; }
-}
-function scanMsg(t, isErr){ const p=$("scanStatus"); p.textContent=t; p.hidden=!t; p.style.color=isErr?"var(--danger)":""; }
-const RECEIPT_PROMPT=`Das Bild ist ein Foto eines deutschen Kassenbons (Supermarkt, Drogerie o. ä.). Lies ihn aus und antworte NUR mit JSON in genau dieser Form:
-{"store": "Name des Ladens, kurz (z. B. Aldi, Rewe, Edeka, dm) oder leer", "date": "YYYY-MM-DD oder leer", "total": Gesamtbetrag in Euro als Zahl, "items": [{"name": "Artikel als gut lesbarer deutscher Name, Abkürzungen ausgeschrieben (z. B. 'BIO TOM.STRAUCH' -> 'Bio-Strauchtomaten')", "price": Zeilenbetrag in Euro als Zahl (Rabatte, Pfandrückgabe und Gutscheine negativ), "cat": "eine Kategorie"}]}
-Kategorien (nur diese Schlüssel): obst (Obst & Gemüse, frische Kräuter), fleisch (Fleisch, Wurst, Fisch), milch (Milch, Käse, Joghurt, Butter, Eier), brot (Brot, Brötchen, Backwaren), vorrat (Nudeln, Reis, Konserven, Öl, Gewürze, Mehl, Müsli, Kaffee, Tee), tk (Tiefkühl), snacks (Süßigkeiten, Chips, Kuchen, Eis), getraenke (Getränke inkl. Pfand), drogerie (Drogerie, Haushalt, Putzmittel, Hygiene), sonst (alles andere, Tüten).
-Mengenzeilen wie "2 x 1,29" gehören zum Artikel darüber; nimm den Zeilenbetrag. Keine Summen-, MwSt-, Zahlungs- oder Bonuszeilen als Artikel. Wenn das Bild kein Kassenbon ist, antworte mit {"error":"kein Kassenbon"}.`;
-$("xPhoto").addEventListener("change", async ()=>{
-  const f=$("xPhoto").files && $("xPhoto").files[0]; $("xPhoto").value="";
-  if (!f || !sampleApi) return;
-  $("scanBtn").classList.add("busy"); $("scanLbl").textContent="Kassenbon wird gelesen …"; scanMsg("");
-  try{
-    const img=await downscale(f);
-    const r=await sampleApi.json(RECEIPT_PROMPT, {images:[img], modelTier:"default", cache:false});
-    if (!r || r.error || !Array.isArray(r.items)) { scanMsg("Auf dem Foto habe ich keinen Kassenbon erkannt. Versucht es mit einem schärferen, geraden Foto.", true); return; }
-    xItems=r.items.filter(i=>i && i.name && Number.isFinite(Number(i.price))).map(i=>({name:String(i.name).slice(0,60), cents:Math.round(Number(i.price)*100), cat:CAT_LABEL[i.cat]?i.cat:"sonst"}));
-    const total=Number(r.total);
-    const sum=xItems.reduce((t,i)=>t+i.cents,0);
-    const cents=Number.isFinite(total)&&total>0 ? Math.round(total*100) : sum;
-    if (cents>0) $("xAmount").value=(cents/100).toFixed(2).replace(".",",");
-    if (r.store){ const st=String(r.store).trim().slice(0,40); const hit=STORES.find(x=>x.toLowerCase()===st.toLowerCase()); if(hit){ xStoreSel=hit; $("xStore").value=""; } else { xStoreSel=""; $("xStore").value=st; } renderXStores(); }
-    if (/^\d{4}-\d\d-\d\d$/.test(r.date||"") && r.date<=todayIso) $("xDate").value=r.date;
-    renderXItems();
-    scanMsg(`${xItems.length} Artikel erkannt. Prüft kurz Summe und Kategorien, dann speichern.`);
-  }catch(e){
-    const c=e&&e.code;
-    if (c==="not_granted"||c==="sampling_disabled"||c==="images_unavailable"||c==="capability_disabled"){ $("scanBox").hidden=true; scanMsg(""); }
-    else if (c==="rate_limited") scanMsg("Gerade zu viele Anfragen. Versucht es in ein paar Minuten noch einmal.", true);
-    else if (c==="image_rejected") scanMsg("Das Foto ließ sich nicht verarbeiten. Nehmt bitte ein normales Foto (JPG oder PNG).", true);
-    else if (c==="invalid_json"||c==="empty_completion"||c==="refused") scanMsg("Der Kassenbon war nicht lesbar. Versucht es mit einem schärferen, geraden Foto.", true);
-    else scanMsg("Das Lesen hat nicht geklappt. Bitte noch einmal versuchen.", true);
-  }finally{
-    $("scanBtn").classList.remove("busy"); $("scanLbl").textContent="Kassenbon fotografieren";
-  }
-});
+
 function renderXStores(){
   const used=[...new Set(expenses.map(e=>e.store).filter(Boolean))];
   const list=[...new Set([...used.slice(0,4),...STORES])].slice(0,10);
@@ -1187,13 +1138,12 @@ function openExp(e, opts={}){
   $("xStore").value = e && !STORES.includes(e.store) ? e.store : "";
   $("xDate").value = e ? e.date : todayIso;
   $("xNote").value = e ? e.note : (opts.note||"");
-  xItems = e ? e.items.map(i=>({...i})) : []; renderXItems(); scanMsg("");
-  $("scanLbl").textContent = xItems.length ? "Kassenbon neu fotografieren" : "Kassenbon fotografieren";
+  xItems = e ? e.items.map(i=>({...i})) : []; renderXItems();
   $("xErr").hidden=true;
   $("xDelete").hidden=!e; $("xDelete").textContent="Ausgabe löschen"; xDelArmed=false;
   renderXStores();
   $("expScrim").hidden=false;
-  if (!xItems.length && $("scanBox").hidden) setTimeout(()=>$("xAmount").focus(),60);
+  setTimeout(()=>$("xAmount").focus(),60);
 }
 function closeExp(){ $("expScrim").hidden=true; editingExp=null; }
 $("xStores").addEventListener("click", e=>{ const b=e.target.closest("[data-store]"); if(!b) return; xStoreSel = xStoreSel===b.dataset.store ? "" : b.dataset.store; $("xStore").value=""; renderXStores(); });
@@ -1702,16 +1652,6 @@ $("tabbar").addEventListener("click", e=>{ const b=e.target.closest("[data-tab]"
 function renderAll(){ renderShop(); if(!$("v-cal").hidden) renderCal(); if(!$("v-cost").hidden) renderCost(); if(!$("v-tasks").hidden) renderTasks(); if(!$("v-meals").hidden) renderMeals(); }
 
 function initialTab(){ setTab(location.hash==="#kalender" ? "cal" : location.hash==="#kasse" ? "cost" : location.hash==="#aufgaben" ? "tasks" : location.hash==="#essen" ? "meals" : lsGet("tab","shop")); renderShop(); }
-
-/* ---------------- Claude for receipts ---------------- */
-(async()=>{
-  try{
-    sampleApi = window.claude ? await window.claude.use("sample") : null;
-    if (!sampleApi) return;
-    const lim = await sampleApi.limits().catch(()=>null);
-    if (lim && lim.images){ $("scanBox").hidden=false; if (lim.images.mediaTypes) $("xPhoto").accept=lim.images.mediaTypes.join(","); }
-  }catch(e){}
-})();
 
 
 /* ---------------- Firebase ---------------- */
