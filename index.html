@@ -30,6 +30,24 @@ img{max-width:100%}
 .small{font-size:.82rem;color:var(--muted);margin:0}
 .invite{display:flex;gap:8px}
 .invite input{flex:1;min-width:0;font:14px var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.welcome input{width:100%;font:16px var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.welcome details{width:100%;text-align:left}
+.welcome summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}
+.welcome details .invite{margin-top:8px}
+.welcome .ok{color:var(--accent);font-weight:600}
+.joinbar{display:grid;gap:8px;margin-bottom:12px}
+.joinreq{display:grid;gap:8px;padding:12px 14px;border-radius:14px;border:1.5px solid var(--accent);background:var(--soft)}
+.joinreq .btns{display:flex;gap:8px}
+.devlist{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}
+.devlist li{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.92rem}
+.devlist li span{flex:1;min-width:0}
+.devlist li small{color:var(--muted)}
+.devlist button{border:0;background:none;color:var(--danger);font:600 .85rem var(--body);cursor:pointer;padding:4px}
+.secbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.secbtns button{font-size:.9rem;padding:9px 12px}
+.codebox{font:600 1.15rem ui-monospace,Menlo,monospace;letter-spacing:.06em;text-align:center;padding:14px;border-radius:12px;border:1.5px dashed var(--accent);background:var(--soft);user-select:all;-webkit-user-select:all;word-break:break-all}
+.secstate{font-weight:600}
+.secstate.on{color:var(--accent)}
 /* Layout: one narrow column; a fixed dock at the bottom (add-bar on the shopping tab, then a fixed-height tab bar). Calendar colours encode who is involved. */
 :root{
   --bg:#f3f5ee; --surface:#ffffff; --fg:#1d2a20; --muted:#647266; --line:#dde3d6;
@@ -311,7 +329,21 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
   <button class="primary" id="createSpace" type="button">Unser Gipfelteam erstellen</button>
   <p class="small">Du hast einen Einladungslink bekommen? Dann öffne einfach diesen Link.</p>
 </div>
+<div class="welcome" id="lockScreen" hidden>
+  <img src="icon-192.png" alt="" width="96" height="96">
+  <h1>Gipfelteam</h1>
+  <p>Euer Gipfelteam ist mit dem Geräteschutz gesichert. Dieses Gerät ist noch nicht freigegeben.</p>
+  <input id="lkName" maxlength="40" placeholder="Name dieses Geräts, z. B. Annas iPhone" aria-label="Name dieses Geräts">
+  <button class="primary" id="lkRequest" type="button">Zugang anfragen</button>
+  <p class="small" id="lkStatus" aria-live="polite"></p>
+  <details>
+    <summary>Beide ausgesperrt? Notfallcode eingeben</summary>
+    <div class="invite"><input id="lkCode" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" aria-label="Notfallcode"><button class="secondary" type="button" id="lkRecover">Entsperren</button></div>
+    <p class="small" id="lkCodeErr" aria-live="polite"></p>
+  </details>
+</div>
 <div class="wrap" id="wrap" hidden>
+  <div class="joinbar" id="joinBar" hidden></div>
   <div class="brand"><img src="icon-192.png" alt="" width="34" height="34"><span>Gipfelteam</span></div>
   <header>
     <h1 id="h1">Einkaufsliste</h1>
@@ -568,8 +600,11 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     <div class="field"><label for="sBudget">Monatsbudget Lebensmittel in € (optional)</label><input id="sBudget" inputmode="decimal" placeholder="z. B. 600"></div>
     <div class="field"><span class="lbl">Einladungslink</span>
       <div class="invite"><input id="inviteLink" readonly aria-label="Einladungslink"><button class="secondary" type="button" id="copyInvite">Kopieren</button></div>
-      <p class="small">Nur für euch zwei. Wer diesen Link hat, kann alles in Gipfelteam sehen und bearbeiten.</p>
-      <p class="small">App-Version: 09.10.2026 23:10</p>
+      <p class="small">Nur für euch zwei. Ist der Geräteschutz an, reicht der Link allein nicht mehr – neue Geräte müssen freigegeben werden.</p>
+    </div>
+    <div class="field" id="secBox"><span class="lbl">Geräteschutz</span><div id="secBody"><p class="small">Wird geladen …</p></div></div>
+    <div class="field">
+      <p class="small">App-Version: 09.10.2026 · Geräteschutz</p>
     </div>
     <p class="err" id="sErr" hidden></p>
     <div class="actions">
@@ -582,7 +617,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDocsFromServer, enableNetwork, disableNetwork } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDoc, getDocs, getDocsFromServer, enableNetwork, disableNetwork, arrayUnion, arrayRemove, deleteField } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC_c7IzqOnNeWCmTbLNkMkxMW6pQ6Gkr70",
@@ -940,6 +975,7 @@ function renderSMe(){
 }
 function openSettings(){
   if ($("inviteLink")) { $("inviteLink").value=getInviteUrl(); $("copyInvite").textContent="Kopieren"; }
+  if (typeof renderSec==="function") renderSec();
   $("sNameA").value=couple.nameA; $("sNameB").value=couple.nameB; sMe=meKey(); $("sErr").hidden=true;
   $("sBudget").value = couple.budget ? String(couple.budget).replace(".",",") : "";
   renderSMe(); $("setScrim").hidden=false;
@@ -1672,15 +1708,16 @@ $("copyInvite").addEventListener("click", async ()=>{
   catch(e){ inp.focus(); inp.select(); }
 });
 
+const guardErr = e => err => { if (err && err.code==="permission-denied") lockedOut(); else if (e) e(err); };
 function shimDoc(ref){ return {
   set: d=>setDoc(ref, d, {merge:true}),
   update: d=>updateDoc(ref, d),
   delete: ()=>deleteDoc(ref),
-  onSnapshot: (n,e)=>onSnapshot(ref, {includeMetadataChanges:true}, n, e) }; }
+  onSnapshot: (n,e)=>onSnapshot(ref, {includeMetadataChanges:true}, n, guardErr(e)) }; }
 function shimCol(ref){ return {
   add: d=>addDoc(ref, d),
   doc: id=>shimDoc(doc(ref, id)),
-  onSnapshot: (n,e)=>onSnapshot(ref, {includeMetadataChanges:true}, n, e) }; }
+  onSnapshot: (n,e)=>onSnapshot(ref, {includeMetadataChanges:true}, n, guardErr(e)) }; }
 
 /* sync status + automatic reconnect */
 let isLive=false, lastTry=Date.now(), fsRef=null, probeRef=null, resyncing=false, hiddenAt=0;
@@ -1713,6 +1750,198 @@ $("statusText").style.cursor="pointer";
 
 localMe = lsGet("ich", null);
 
+/* ---------------- Geräteschutz ---------------- */
+let myUid=null, spaceRefG=null, sec={members:[], devices:{}, locked:false, loaded:false}, secStep=null, newCode="", secBusy=false, isLockedOut=false, joins=[];
+const CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function newRecoveryCode(){ return Array.from(crypto.getRandomValues(new Uint8Array(20)), x=>CODE_CHARS[x % 32]).join(""); }
+const fmtCode = c => c.match(/.{1,5}/g).join("-");
+const normCode = c => String(c).toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/O/g,"0").replace(/I/g,"1");
+function devType(){ const u=navigator.userAgent; return /iPhone/.test(u)?"iPhone":/iPad|Macintosh.*Mobile/.test(u)?"iPad":/Android/.test(u)?"Android":"Computer"; }
+function myPersonName(){ const w=meKey(); return w==="a"?couple.nameA:w==="b"?couple.nameB:""; }
+function devLabel(){ const n=myPersonName(); return n ? n+" · "+devType() : (lsGet("devname","") || devType()); }
+const devInfo = name => ({name:String(name||devLabel()).slice(0,40), at:Date.now()});
+function fmtDay(t){ return t ? new Date(t).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"}) : ""; }
+
+let ensureTried=false;
+async function ensureMember(data){
+  if (!data || data.locked===true || ensureTried) return;
+  const m=Array.isArray(data.members)?data.members:[];
+  if (m.includes(myUid)) return;
+  ensureTried=true;
+  try{ await updateDoc(spaceRefG, {members:arrayUnion(myUid), ["devices."+myUid]:devInfo()}); }catch(e){}
+}
+function watchSecurity(){
+  onSnapshot(spaceRefG, snap=>{
+    const d=snap.data()||{};
+    sec={members:Array.isArray(d.members)?d.members:[], devices:d.devices&&typeof d.devices==="object"?d.devices:{}, locked:d.locked===true, loaded:true};
+    const isMember=sec.members.includes(myUid);
+    if (sec.locked && !isMember && !(snap.metadata && snap.metadata.fromCache)) { lockedOut(); return; }
+    if (!sec.locked && !isMember && !(snap.metadata && snap.metadata.hasPendingWrites)) ensureMember(d);
+    if (isMember){
+      const mine=sec.devices[myUid], want=devLabel();
+      if (myPersonName() && (!mine || mine.name!==want)) updateDoc(spaceRefG, {["devices."+myUid]:devInfo(want)}).catch(()=>{});
+      if (!joinsWatching) watchJoins();
+    }
+    if (!$("setScrim").hidden) renderSec();
+  }, err=>{ if (err && err.code==="permission-denied") lockedOut(); });
+}
+let joinsWatching=false;
+function watchJoins(){
+  joinsWatching=true;
+  onSnapshot(collection(spaceRefG,"joins"), snap=>{
+    joins=snap.docs.map(d=>({id:d.id, name:String((d.data()||{}).name||"Neues Gerät").slice(0,40), at:Number((d.data()||{}).at)||0}));
+    renderJoins();
+  }, ()=>{ joinsWatching=false; });
+}
+function renderJoins(){
+  const list=joins.filter(j=>!sec.members.includes(j.id));
+  $("joinBar").hidden=!list.length;
+  $("joinBar").innerHTML=list.map(j=>`<div class="joinreq"><div><b>${esc(j.name)}</b> möchte Gipfelteam auf einem neuen Gerät nutzen.</div>
+    <div class="small">Lass nur Geräte zu, die euch gehören.</div>
+    <div class="btns"><button class="small-primary" type="button" data-jok="${esc(j.id)}">Zulassen</button><button class="secondary" type="button" data-jno="${esc(j.id)}" style="padding:8px 14px;font-size:.9rem">Ablehnen</button></div></div>`).join("");
+}
+$("joinBar").addEventListener("click", async e=>{
+  const ok=e.target.closest("[data-jok]"), no=e.target.closest("[data-jno]");
+  const id=(ok||no)&&(ok||no).dataset[ok?"jok":"jno"]; if(!id) return;
+  const j=joins.find(x=>x.id===id);
+  try{
+    if (ok) await updateDoc(spaceRefG, {members:arrayUnion(id), ["devices."+id]:{name:j?j.name:"Neues Gerät", at:Date.now()}});
+    await deleteDoc(doc(spaceRefG,"joins",id));
+    showNote(ok?"Gerät freigegeben.":"Anfrage abgelehnt.");
+  }catch(x){ showNote("Das hat nicht geklappt. Sind die neuen Firestore-Regeln eingespielt?"); }
+});
+
+function renderSec(){
+  const b=$("secBody"); if(!b) return;
+  if (!sec.loaded){ b.innerHTML=`<p class="small">Wird geladen …</p>`; return; }
+  const devs=sec.members.map(id=>({id, ...(sec.devices[id]||{name:"Unbenanntes Gerät"})}));
+  const list=`<ul class="devlist">${devs.map(d=>`<li><span>${esc(d.name)}${d.id===myUid?" <small>(dieses Gerät)</small>":""}<br><small>${d.at?"seit "+esc(fmtDay(d.at)):""}</small></span>${sec.locked&&d.id!==myUid?`<button type="button" data-rmdev="${esc(d.id)}">Entfernen</button>`:""}</li>`).join("")}</ul>`;
+  if (secStep==="code" || secStep==="rotated"){
+    b.innerHTML=`<p class="small">${secStep==="rotated"?"<b>Neuer Notfallcode.</b> Der alte gilt nicht mehr.":"<b>Euer Notfallcode.</b>"} Damit kommt ihr wieder rein, falls mal kein freigegebenes Gerät mehr da ist (z. B. App gelöscht oder neues Handy). Speichert ihn an einem sicheren Ort, z. B. in einer Notiz oder den iPhone-Passwörtern. Er wird nur jetzt angezeigt.</p>
+      <div class="codebox" id="codeBox">${fmtCode(newCode)}</div>
+      <div class="secbtns"><button class="secondary" type="button" id="secCopy">Code kopieren</button>
+      <button class="small-primary" type="button" id="secDone">${secStep==="code"?"Code gespeichert – Schutz einschalten":"Code gespeichert"}</button></div>`;
+    return;
+  }
+  if (!sec.locked){
+    b.innerHTML=`<p class="small"><span class="secstate">Aus.</span> Jeder mit dem Link kommt rein.</p>
+      <p class="small">Diese Geräte sind schon eingetragen:</p>${list}
+      <p class="small">Öffnet die App vorher auf beiden Handys, damit beide hier stehen. Danach können neue Geräte nur noch beitreten, wenn ihr sie freigebt.</p>
+      <div class="secbtns"><button class="small-primary" type="button" id="secOn" ${secBusy?"disabled":""}>Geräteschutz einschalten</button></div>`;
+  } else {
+    b.innerHTML=`<p class="small"><span class="secstate on">An.</span> Nur diese Geräte haben Zugriff:</p>${list}
+      <div class="secbtns"><button class="secondary" type="button" id="secRotate" ${secBusy?"disabled":""}>Neuen Notfallcode erzeugen</button>
+      <button class="danger" type="button" id="secOff" style="font-size:.9rem;padding:9px 12px">Geräteschutz ausschalten</button></div>`;
+  }
+}
+let offArmed=null;
+async function createCode(){
+  const code=newRecoveryCode();
+  await setDoc(doc(spaceRefG,"recovery",code), {at:Date.now()});
+  return code;
+}
+async function dropOtherCodes(keep){
+  const snap=await getDocs(collection(spaceRefG,"recovery"));
+  await Promise.all(snap.docs.filter(d=>d.id!==keep).map(d=>deleteDoc(d.ref)));
+}
+$("secBody").addEventListener("click", async e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  try{
+    if (t.id==="secOn"){
+      if (!sec.members.includes(myUid)) await ensureMember({members:sec.members});
+      secBusy=true; renderSec();
+      newCode=await createCode(); await dropOtherCodes(newCode);
+      secBusy=false; secStep="code"; renderSec();
+    } else if (t.id==="secCopy"){
+      try{ await navigator.clipboard.writeText(fmtCode(newCode)); t.textContent="Kopiert"; }catch(x){ const r=document.createRange(); r.selectNodeContents($("codeBox")); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+    } else if (t.id==="secDone"){
+      if (secStep==="code"){ await updateDoc(spaceRefG, {locked:true}); showNote("Geräteschutz ist an."); }
+      secStep=null; newCode=""; renderSec();
+    } else if (t.id==="secRotate"){
+      secBusy=true; renderSec();
+      newCode=await createCode(); await dropOtherCodes(newCode);
+      secBusy=false; secStep="rotated"; renderSec();
+    } else if (t.id==="secOff"){
+      if (!offArmed){ t.textContent="Wirklich ausschalten? Nochmal tippen"; offArmed=setTimeout(()=>{ offArmed=null; renderSec(); },3500); return; }
+      clearTimeout(offArmed); offArmed=null;
+      await updateDoc(spaceRefG, {locked:false}); showNote("Geräteschutz ist aus.");
+    } else if (t.dataset.rmdev){
+      const id=t.dataset.rmdev;
+      if (t.dataset.armed!=="1"){ t.dataset.armed="1"; t.textContent="Sicher?"; return; }
+      await updateDoc(spaceRefG, {members:arrayRemove(id), ["devices."+id]:deleteField()});
+      showNote("Gerät entfernt.");
+    }
+  }catch(x){
+    secBusy=false; renderSec();
+    $("sErr").textContent="Das hat nicht geklappt. Prüfe die Verbindung und ob die neuen Firestore-Regeln eingespielt sind.";
+    $("sErr").hidden=false;
+  }
+});
+
+/* locked out: request access or recover */
+let lockPoll=null;
+function lockedOut(){
+  if (isLockedOut) return;
+  isLockedOut=true;
+  $("wrap").hidden=true; $("dock").hidden=true; $("setScrim").hidden=true; $("lockScreen").hidden=false;
+  $("lkName").value=lsGet("devname","") || devType();
+  if (lsGet("joinAsked",0)) $("lkStatus").textContent="Anfrage ist raus. Sobald dein Schatz sie in der App bestätigt, geht es hier automatisch weiter.";
+  clearInterval(lockPoll);
+  lockPoll=setInterval(async ()=>{
+    try{ const s=await getDoc(spaceRefG); const d=s.data()||{}; if (!d.locked || (Array.isArray(d.members)&&d.members.includes(myUid))) location.reload(); }catch(e){}
+  }, 6000);
+}
+$("lkRequest").addEventListener("click", async ()=>{
+  const name=$("lkName").value.trim().slice(0,40) || devType();
+  lsSet("devname", name);
+  $("lkRequest").disabled=true;
+  try{
+    await setDoc(doc(spaceRefG,"joins",myUid), {name, at:Date.now()});
+    lsSet("joinAsked", Date.now());
+    $("lkStatus").textContent="Anfrage ist raus. Sobald dein Schatz sie in der App bestätigt, geht es hier automatisch weiter.";
+  }catch(e){ $("lkStatus").textContent="Anfrage konnte nicht gesendet werden. Prüfe die Verbindung und versuch es nochmal."; }
+  $("lkRequest").disabled=false;
+});
+$("lkRecover").addEventListener("click", async ()=>{
+  const code=normCode($("lkCode").value);
+  $("lkCodeErr").textContent="";
+  if (code.length!==20){ $("lkCodeErr").textContent="Der Code hat 20 Zeichen, z. B. ABCDE-FGH2J-KLMN3-PQRS4."; return; }
+  $("lkRecover").disabled=true;
+  try{
+    const name=$("lkName").value.trim().slice(0,40) || devType(); lsSet("devname", name);
+    await updateDoc(spaceRefG, {members:arrayUnion(myUid), ["devices."+myUid]:devInfo(name), rc:code});
+    // now a member again: replace the used code with a fresh one
+    const fresh=await createCode();
+    await dropOtherCodes(fresh);
+    await updateDoc(spaceRefG, {rc:deleteField()});
+    try{ sessionStorage.setItem("newrc", fresh); }catch(e){}
+    location.reload();
+  }catch(e){
+    $("lkCodeErr").textContent = e && e.code==="permission-denied" ? "Der Code stimmt nicht." : "Hat nicht geklappt. Prüfe die Verbindung und versuch es nochmal.";
+    $("lkRecover").disabled=false;
+  }
+});
+
+async function enterSpace(isNew){
+  if (isNew){
+    await setDoc(spaceRefG, {created:Date.now(), members:[myUid], devices:{[myUid]:devInfo()}}, {merge:true});
+  } else {
+    try{
+      const s=await getDoc(spaceRefG);
+      const d=s.data();
+      if (d && d.locked===true && !(Array.isArray(d.members)&&d.members.includes(myUid)) && !s.metadata.fromCache){ lockedOut(); return false; }
+      await ensureMember(d);
+    }catch(e){
+      if (e && e.code==="permission-denied"){ lockedOut(); return false; }
+      // offline: continue with the local cache
+    }
+  }
+  watchSecurity();
+  let pending=null; try{ pending=sessionStorage.getItem("newrc"); sessionStorage.removeItem("newrc"); }catch(e){}
+  if (pending){ newCode=pending; secStep="rotated"; setTimeout(()=>{ openSettings(); showNote("Willkommen zurück! Bitte den neuen Notfallcode speichern."); },400); }
+  return true;
+}
+
 function start(isNew){
   $("welcome").hidden=true; $("wrap").hidden=false; $("dock").hidden=false;
   lsSet("key", key);
@@ -1724,7 +1953,7 @@ function start(isNew){
   let fs;
   try{ fs=initializeFirestore(app, {localCache:persistentLocalCache()}); }
   catch(e){ fs=initializeFirestore(app, {}); }
-  const spaceRef=doc(fs, "spaces", key);
+  const spaceRef=doc(fs, "spaces", key); spaceRefG=spaceRef;
   fsRef=fs; probeRef=collection(spaceRef, "items"); lastTry=Date.now();
   db = { collection: name=>shimCol(collection(spaceRef, name)), doc: ()=>shimDoc(spaceRef) };
 
@@ -1732,10 +1961,14 @@ function start(isNew){
     $("statusText").textContent="Anmeldung fehlgeschlagen. Ist die anonyme Anmeldung in Firebase aktiviert?";
   });
   let subscribed=false;
-  onAuthStateChanged(auth, u=>{
+  onAuthStateChanged(auth, async u=>{
     if (!u || subscribed) return;
     subscribed=true;
-    if (isNew) setDoc(spaceRef, {created:Date.now()}, {merge:true}).then(openSettings).catch(showErr);
+    myUid=u.uid;
+    let ok=true;
+    try{ ok=await enterSpace(isNew); }catch(e){ showErr(e); }
+    if (!ok) return;
+    if (isNew) openSettings();
   itemsCol=db.collection("items");
   itemsCol.onSnapshot(snap=>{
     items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(i=>typeof i.name==="string");
