@@ -189,6 +189,11 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .toggle input{width:20px;height:20px;accent-color:var(--accent);margin:0}
 .err{color:var(--danger);font-size:.9rem;margin:0}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+.imp-note{margin:0;font-size:.85rem;color:var(--muted)}
+.imp-sum{padding:12px 14px;border-radius:12px;background:var(--soft);font-size:.92rem;display:grid;gap:4px}
+.imp-sum b{font-size:1rem}
+.imp-file{display:grid;gap:6px}
+.imp-file input{font:15px var(--body);color:var(--fg)}
 .primary{flex:1;border:0;background:var(--accent);color:var(--accent-fg);font:600 1rem var(--body);padding:13px;border-radius:12px;cursor:pointer}
 .secondary{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:600 1rem var(--body);padding:13px 16px;border-radius:12px;cursor:pointer}
 /* costs */
@@ -588,6 +593,27 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
   </form>
 </div>
 
+<!-- calendar import sheet -->
+<div class="scrim" id="impScrim" hidden>
+  <form class="sheet" id="impForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="impHead">
+    <h3 id="impHead">Kalender importieren</h3>
+    <div class="field imp-file"><label for="impFile">ICS-Datei auswählen</label>
+      <input id="impFile" type="file" accept=".ics,text/calendar">
+      <p class="imp-note">Die Datei bleibt auf deinem Gerät, nur die Termine werden in euren Kalender übernommen.</p></div>
+    <div id="impOpts" hidden>
+      <div class="imp-sum" id="impSum"></div>
+      <div class="field"><span class="lbl">Für wen sind diese Termine?</span><div class="seg" id="impWho"></div></div>
+      <label class="toggle"><input type="checkbox" id="impPast"> Auch vergangene Termine übernehmen</label>
+    </div>
+    <p class="err" id="impErr" hidden></p>
+    <div class="actions">
+      <button class="primary" type="submit" id="impGo" disabled>Importieren</button>
+      <button class="secondary" type="button" id="impCancel">Schließen</button>
+    </div>
+    <button class="secondary" type="button" id="impUndo" hidden>Letzten Import rückgängig machen</button>
+  </form>
+</div>
+
 <!-- settings sheet -->
 <div class="scrim" id="setScrim" hidden>
   <form class="sheet" id="setForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="setHead">
@@ -598,13 +624,16 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     </div>
     <div class="field"><span class="lbl">Ich bin</span><div class="seg" id="sMe" style="grid-template-columns:1fr 1fr"></div></div>
     <div class="field"><label for="sBudget">Monatsbudget Lebensmittel in € (optional)</label><input id="sBudget" inputmode="decimal" placeholder="z. B. 600"></div>
+    <div class="field"><span class="lbl">Termine übernehmen</span>
+      <button class="secondary" type="button" id="openImport">Kalender importieren (.ics)</button>
+      <p class="imp-note">Zum Beispiel aus TimeTree, Google oder Apple Kalender.</p></div>
     <div class="field"><span class="lbl">Einladungslink</span>
       <div class="invite"><input id="inviteLink" readonly aria-label="Einladungslink"><button class="secondary" type="button" id="copyInvite">Kopieren</button></div>
       <p class="small">Nur für euch zwei. Ist der Geräteschutz an, reicht der Link allein nicht mehr – neue Geräte müssen freigegeben werden.</p>
     </div>
     <div class="field" id="secBox"><span class="lbl">Geräteschutz</span><div id="secBody"><p class="small">Wird geladen …</p></div></div>
     <div class="field">
-      <p class="small">App-Version: 09.10.2026 · Geräteschutz</p>
+      <p class="small">App-Version: 10.10.2026 · Kalender-Import</p>
     </div>
     <p class="err" id="sErr" hidden></p>
     <div class="actions">
@@ -795,6 +824,7 @@ function normEvent(id,d){
   e.repeat = REP[d.repeat] ? d.repeat : "";
   e.repeatUntil = e.repeat && /^\d{4}-\d\d-\d\d$/.test(d.repeatUntil||"") ? d.repeatUntil : "";
   e.skip = Array.isArray(d.skip) ? d.skip.filter(x=>typeof x==="string") : [];
+  e.ics = typeof d.ics==="string" ? d.ics : ""; e.imp = Number(d.imp)||0;
   return e;
 }
 
@@ -959,6 +989,243 @@ $("evForm").addEventListener("submit", async e=>{
     else await evCol.add({...data, skip:[], by:myBy(), at:Date.now()});
   }catch(x){ showErr(x); }
   renderCal();
+});
+/* ---------------- calendar import (.ics) ---------------- */
+const pad2=n=>String(n).padStart(2,"0");
+function icsUnescape(v){ return v.replace(/\\n/gi,"\n").replace(/\\([,;\\])/g,"$1"); }
+function tzOffsetMin(tz, utcMs){
+  const f=new Intl.DateTimeFormat("en-US",{timeZone:tz,hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const p=Object.fromEntries(f.formatToParts(new Date(utcMs)).map(x=>[x.type,x.value]));
+  return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second)-utcMs)/60000;
+}
+// -> {date:"YYYY-MM-DD", time:"HH:MM"|"", allDay}
+function icsTime(prop){
+  if (!prop) return null;
+  const v=prop.value.trim(), m=v.match(/^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?(Z)?)?$/);
+  if (!m) return null;
+  if (!m[4]) return {date:`${m[1]}-${m[2]}-${m[3]}`, time:"", allDay:true};
+  let d;
+  if (m[7]) d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)));
+  else if (prop.params.TZID){
+    try{ const wall=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)); let u=wall-tzOffsetMin(prop.params.TZID,wall)*60000; u=wall-tzOffsetMin(prop.params.TZID,u)*60000; d=new Date(u); }
+    catch(e){ d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]); }
+  } else d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+  return {date:iso(d), time:pad2(d.getHours())+":"+pad2(d.getMinutes()), allDay:false};
+}
+function parseIcs(text){
+  const lines=text.replace(/\r?\n[ \t]/g,"").split(/\r?\n/);
+  const out=[]; let cur=null, depth=0;
+  for (const line of lines){
+    if (/^BEGIN:VEVENT$/i.test(line)){ cur={}; depth=0; continue; }
+    if (!cur) continue;
+    if (/^BEGIN:/i.test(line)){ depth++; continue; }       // e.g. VALARM
+    if (/^END:VEVENT$/i.test(line)){ out.push(cur); cur=null; continue; }
+    if (/^END:/i.test(line)){ depth--; continue; }
+    if (depth>0) continue;
+    let i=0, q=false; for (; i<line.length; i++){ const c=line[i]; if (c==='"') q=!q; else if (c===":" && !q) break; }
+    if (i>=line.length) continue;
+    const head=line.slice(0,i), value=line.slice(i+1);
+    const parts=head.split(";"), name=parts[0].toUpperCase(), params={};
+    for (const p of parts.slice(1)){ const k=p.indexOf("="); if (k>0) params[p.slice(0,k).toUpperCase()]=p.slice(k+1).replace(/^"|"$/g,""); }
+    (cur[name]=cur[name]||[]).push({value, params});
+  }
+  return out;
+}
+const WD_ICS=["SU","MO","TU","WE","TH","FR","SA"];
+function parseRule(v){ const r={}; for (const p of v.split(";")){ const k=p.indexOf("="); if(k>0) r[p.slice(0,k).toUpperCase()]=p.slice(k+1); } return r; }
+function addMonthsIso(s,n){ const d=parse(s); const t=new Date(d.getFullYear(), d.getMonth()+n, d.getDate()); return t.getDate()===d.getDate()?iso(t):null; }
+function nthWeekday(y,m,wd,n){ // n>0: n-th, n<0: from end
+  if (n>0){ const f=new Date(y,m,1); const d=1+((wd-f.getDay()+7)%7)+(n-1)*7; const r=new Date(y,m,d); return r.getMonth()===m?iso(r):null; }
+  const l=new Date(y,m+1,0); const d=l.getDate()-((l.getDay()-wd+7)%7)+(n+1)*7; const r=new Date(y,m,d); return r.getMonth()===m?iso(r):null;
+}
+// all occurrence start dates of a rule between start and hardEnd (for rules the app cannot store as a series)
+function ruleDates(start, r, hardEnd){
+  const out=[], iv=Math.max(1,parseInt(r.INTERVAL)||1), count=parseInt(r.COUNT)||0;
+  const until=r.UNTIL?icsTime({value:r.UNTIL,params:{}}).date:"";
+  const end = until && until<hardEnd ? until : hardEnd;
+  const byday=(r.BYDAY||"").split(",").filter(Boolean).map(x=>{ const m=x.match(/^([+-]?\d+)?([A-Z]{2})$/); return m?{n:m[1]?parseInt(m[1]):0, wd:WD_ICS.indexOf(m[2])}:null; }).filter(x=>x&&x.wd>=0);
+  const bymd=(r.BYMONTHDAY||"").split(",").filter(Boolean).map(Number);
+  const push=d=>{ if (d>=start && d<=end && (!count || out.length<count) && !out.includes(d)) out.push(d); };
+  const d0=parse(start);
+  for (let k=0; k<5000; k++){
+    if (count && out.length>=count) break;
+    if (r.FREQ==="DAILY"){ const d=addDays(start,k*iv); if (d>end) break; push(d); }
+    else if (r.FREQ==="WEEKLY"){
+      const wk=addDays(start, k*7*iv - ((d0.getDay()+6)%7)); if (wk>end) break; // monday of that week
+      const days = byday.length ? byday.map(b=>(b.wd+6)%7) : [(d0.getDay()+6)%7];
+      for (const off of days.sort()) push(addDays(wk,off));
+    } else if (r.FREQ==="MONTHLY"){
+      const fd=new Date(d0.getFullYear(), d0.getMonth()+k*iv, 1), y=fd.getFullYear(), m=fd.getMonth(); const first=iso(fd); if (first>end) break;
+      const ms=[];
+      if (byday.length) for (const b of byday){ if (b.n) ms.push(nthWeekday(y,m,b.wd,b.n)); else { for (let n=1;n<=5;n++) ms.push(nthWeekday(y,m,b.wd,n)); } }
+      else if (bymd.length) for (const md of bymd){ const r2=new Date(y,m, md>0?md:new Date(y,m+1,0).getDate()+md+1); if (r2.getMonth()===m) ms.push(iso(r2)); }
+      else { const r2=new Date(y,m,d0.getDate()); if (r2.getDate()===d0.getDate()) ms.push(iso(r2)); }
+      for (const x of ms.filter(Boolean).sort()) push(x);
+    } else if (r.FREQ==="YEARLY"){
+      const y=d0.getFullYear()+k*iv; if (iso(new Date(y,0,1))>end) break;
+      if (byday.length && byday[0].n){ const mon=r.BYMONTH?parseInt(r.BYMONTH)-1:d0.getMonth(); push(nthWeekday(y,mon,byday[0].wd,byday[0].n)); }
+      else { const r2=new Date(y,d0.getMonth(),d0.getDate()); if (r2.getMonth()===d0.getMonth()) push(iso(r2)); }
+    } else break;
+  }
+  return out;
+}
+// can the app store this rule as one of its own series?
+function nativeRepeat(r, start){
+  const iv=parseInt(r.INTERVAL)||1, d0=parse(start);
+  const byday=(r.BYDAY||"").split(",").filter(Boolean);
+  if (r.BYSETPOS || r.BYHOUR || r.BYWEEKNO || r.BYYEARDAY) return null;
+  if (r.FREQ==="DAILY" && !r.BYDAY && !r.BYMONTH && !r.BYMONTHDAY) return iv===1?"daily":iv===7?"weekly":iv===14?"biweekly":null;
+  if (r.FREQ==="WEEKLY" && (iv===1||iv===2) && !r.BYMONTH && !r.BYMONTHDAY && byday.every(x=>/^[A-Z]{2}$/.test(x))) return iv===1?"weekly":"biweekly";
+  if (r.FREQ==="MONTHLY" && iv===1 && !r.BYDAY && (!r.BYMONTHDAY || parseInt(r.BYMONTHDAY)===d0.getDate())) return "monthly";
+  if (r.FREQ==="YEARLY" && iv===1 && !r.BYDAY && !r.BYMONTHDAY && (!r.BYMONTH || parseInt(r.BYMONTH)===d0.getMonth()+1)) return "yearly";
+  return null;
+}
+function untilFor(r, start, rep, nDays){
+  if (r.UNTIL) return icsTime({value:r.UNTIL,params:{}}).date;
+  const c=parseInt(r.COUNT)||0; if (!c) return "";
+  const per=Math.ceil(c/(nDays||1))-1;
+  if (rep==="daily") return addDays(start,per); if (rep==="weekly") return addDays(start,per*7); if (rep==="biweekly") return addDays(start,per*14);
+  if (rep==="monthly"){ const d=parse(start); return iso(new Date(d.getFullYear(), d.getMonth()+per, d.getDate())); }
+  if (rep==="yearly"){ const d=parse(start); return iso(new Date(d.getFullYear()+per, d.getMonth(), d.getDate())); }
+  return "";
+}
+// -> list of app events (without who/by/at) + stats
+function icsToEvents(text){
+  const raw=parseIcs(text), stats={found:0, series:0, expanded:0, cancelled:0};
+  const one=(ev,k)=>ev[k]&&ev[k][0];
+  const val=(ev,k)=>one(ev,k)?icsUnescape(one(ev,k).value).trim():"";
+  const masters=new Map(), overrides=[];
+  for (const ev of raw){
+    const uid=val(ev,"UID") || ("x"+Math.random().toString(36).slice(2));
+    if (one(ev,"RECURRENCE-ID")) overrides.push({ev,uid}); else masters.set(uid,{ev,uid,skip:[]});
+  }
+  for (const o of overrides){ const m=masters.get(o.uid); const t=icsTime(one(o.ev,"RECURRENCE-ID")); if (m && t) m.skip.push(t.date); }
+  const hardEnd=addDays(todayIso, 730), res=[];
+  const build=(ev, key)=>{
+    const st=icsTime(one(ev,"DTSTART")); if (!st) return null;
+    let en=icsTime(one(ev,"DTEND"));
+    if (!en && one(ev,"DURATION")){ const m=one(ev,"DURATION").value.match(/P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/); if (m){ const mins=((+m[1]||0)*7*1440)+((+m[2]||0)*1440)+((+m[3]||0)*60)+(+m[4]||0); const d=new Date(parse(st.date).getTime()); if(!st.allDay){ const [h,mi]=st.time.split(":"); d.setHours(+h,+mi); } d.setMinutes(d.getMinutes()+mins); en = st.allDay ? {date:iso(d),time:"",allDay:true} : {date:iso(d), time:pad2(d.getHours())+":"+pad2(d.getMinutes())}; } }
+    const e={title:(val(ev,"SUMMARY")||"(Ohne Titel)").slice(0,120), date:st.date, endDate:"", allDay:st.allDay, start:st.allDay?"":st.time, end:"", place:val(ev,"LOCATION").slice(0,200), note:val(ev,"DESCRIPTION").slice(0,2000), repeat:"", repeatUntil:"", skip:[], ics:key};
+    if (en){
+      if (st.allDay){ const last=addDays(en.date,-1); if (last>st.date) e.endDate=last; }
+      else {
+        if (en.date>st.date){
+          if (en.time==="00:00" && dayDiff(st.date,en.date)===1) e.end="23:59";
+          else { e.endDate=en.date; e.end=en.time; }
+        } else if (en.time && en.time!==st.time) e.end=en.time;
+      }
+    }
+    return e;
+  };
+  for (const {ev,uid,skip} of [...masters.values(), ...overrides.map(o=>({ev:o.ev, uid:o.uid+"#"+one(o.ev,"RECURRENCE-ID").value, skip:[]}))]){
+    if (/CANCELLED/i.test(val(ev,"STATUS"))){ stats.cancelled++; continue; }
+    const base=build(ev, uid); if (!base) continue;
+    stats.found++;
+    const ex=[...skip]; for (const p of ev.EXDATE||[]) for (const v of p.value.split(",")){ const t=icsTime({value:v, params:p.params}); if (t) ex.push(t.date); }
+    const rr=one(ev,"RRULE");
+    if (!rr){ res.push(base); continue; }
+    stats.series++;
+    const r=parseRule(rr.value), rep=nativeRepeat(r, base.date);
+    if (rep){
+      const days=(r.FREQ==="WEEKLY" && r.BYDAY) ? r.BYDAY.split(",") : null;
+      if (days && days.length>1){
+        for (const dcode of days){
+          const wd=WD_ICS.indexOf(dcode); let first=base.date; while (parse(first).getDay()!==wd) first=addDays(first,1);
+          const dur=base.endDate?dayDiff(base.date,base.endDate):0;
+          res.push({...base, date:first, endDate:dur?addDays(first,dur):"", repeat:rep, repeatUntil:untilFor(r,first,rep,days.length), skip:ex, ics:uid+"@"+dcode});
+        }
+      } else {
+        let first=base.date;
+        if (days && days.length===1){ const wd=WD_ICS.indexOf(days[0]); while (parse(first).getDay()!==wd) first=addDays(first,1); }
+        const dur=base.endDate?dayDiff(base.date,base.endDate):0;
+        res.push({...base, date:first, endDate:dur?addDays(first,dur):"", repeat:rep, repeatUntil:untilFor(r,first,rep,1), skip:ex});
+      }
+    } else {
+      stats.expanded++;
+      const dur=base.endDate?dayDiff(base.date,base.endDate):0;
+      for (const d of ruleDates(base.date, r, hardEnd)) if (!ex.includes(d)) res.push({...base, date:d, endDate:dur?addDays(d,dur):"", ics:uid+"#"+d});
+    }
+  }
+  return {events:res, stats};
+}
+
+let impData=null, impWho="both", impBusy=false;
+function renderImpWho(){
+  $("impWho").innerHTML = W_ORDER.map(w=>`<button type="button" class="c-${w}" data-iw="${w}" aria-pressed="${w===impWho}"><i class="sw"></i>${esc(w==="both"?"Beide":labelFor(w))}</button>`).join("");
+}
+function impSelection(){
+  if (!impData) return {list:[], dup:0, past:0};
+  const have=new Set(events.map(e=>e.ics).filter(Boolean)), withPast=$("impPast").checked;
+  let dup=0, past=0; const list=[];
+  for (const e of impData.events){
+    if (have.has(e.ics)){ dup++; continue; }
+    const lastOcc = e.repeat ? (e.repeatUntil || "9999-12-31") : (e.endDate || e.date);
+    if (!withPast && lastOcc<todayIso){ past++; continue; }
+    list.push(e);
+  }
+  return {list, dup, past};
+}
+function renderImp(){
+  const lastImp=Math.max(0,...events.map(e=>e.imp||0));
+  $("impUndo").hidden=!lastImp || impBusy;
+  if (!impData){ $("impOpts").hidden=true; $("impGo").disabled=true; return; }
+  const {list,dup,past}=impSelection(), st=impData.stats;
+  $("impOpts").hidden=false;
+  $("impSum").innerHTML = `<b>${list.length} ${list.length===1?"Termin wird":"Termine werden"} übernommen</b>
+    <span>${st.found} Termine in der Datei${st.series?`, davon ${st.series} wiederkehrend`:""}.</span>
+    ${past?`<span>${past===1?"1 vergangener Termin wird":past+" vergangene Termine werden"} ausgelassen.</span>`:""}
+    ${dup?`<span>${dup===1?"1 Termin ist":dup+" Termine sind"} schon in eurem Kalender und ${dup===1?"wird":"werden"} übersprungen.</span>`:""}
+    ${st.expanded?`<span>${st.expanded===1?"1 Serie":st.expanded+" Serien"} mit besonderem Rhythmus (z. B. „jeden 2. Dienstag“) werden als einzelne Termine für die nächsten 2 Jahre angelegt.</span>`:""}`;
+  $("impGo").disabled = impBusy || !list.length;
+  $("impGo").textContent = impBusy ? "Wird importiert …" : "Importieren";
+}
+function openImport(){
+  impData=null; impWho="both"; $("impFile").value=""; $("impPast").checked=false; $("impErr").hidden=true;
+  renderImpWho(); renderImp(); $("setScrim").hidden=true; $("impScrim").hidden=false;
+}
+$("openImport").addEventListener("click", openImport);
+$("impCancel").addEventListener("click", ()=>{ if(!impBusy) $("impScrim").hidden=true; });
+$("impScrim").addEventListener("click", e=>{ if(e.target===$("impScrim") && !impBusy) $("impScrim").hidden=true; });
+$("impWho").addEventListener("click", e=>{ const b=e.target.closest("[data-iw]"); if(b){ impWho=b.dataset.iw; renderImpWho(); } });
+$("impPast").addEventListener("change", renderImp);
+$("impFile").addEventListener("change", async ()=>{
+  const f=$("impFile").files[0]; $("impErr").hidden=true; impData=null;
+  if (f){
+    try{
+      const text=await f.text();
+      if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("kein Kalender");
+      impData=icsToEvents(text);
+      if (!impData.events.length){ impData=null; $("impErr").textContent="In der Datei wurden keine Termine gefunden."; $("impErr").hidden=false; }
+    }catch(e){ impData=null; $("impErr").textContent="Die Datei konnte nicht gelesen werden. Wähle eine .ics-Kalenderdatei."; $("impErr").hidden=false; }
+  }
+  renderImp();
+});
+$("impForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const {list}=impSelection(); if (!list.length || impBusy) return;
+  impBusy=true; renderImp();
+  const stamp=Date.now(), docs=list.map(x=>({...x, who:impWho, by:myBy(), at:stamp, imp:stamp}));
+  let done=0, failed=0;
+  if (local){
+    docs.forEach((d,i)=>events.push(normEvent("l"+stamp+"_"+i, d))); lsSet("termine",events); done=docs.length;
+  } else {
+    for (let i=0;i<docs.length;i+=20){
+      const res=await Promise.allSettled(docs.slice(i,i+20).map(d=>evCol.add(d)));
+      done+=res.filter(r=>r.status==="fulfilled").length; failed+=res.filter(r=>r.status==="rejected").length;
+      $("impGo").textContent=`Wird importiert … ${done} von ${docs.length}`;
+    }
+  }
+  impBusy=false; $("impScrim").hidden=true; renderCal();
+  showNote(failed ? `${done} Termine importiert, ${failed} nicht. Prüfe die Verbindung und importiere die Datei nochmal – schon vorhandene Termine werden übersprungen.` : `${done} Termine importiert.`);
+});
+$("impUndo").addEventListener("click", async ()=>{
+  const b=$("impUndo"), lastImp=Math.max(0,...events.map(x=>x.imp||0)); if (!lastImp) return;
+  const mine=events.filter(x=>x.imp===lastImp);
+  if (b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent=`${mine.length} importierte Termine löschen? Nochmal tippen`; setTimeout(()=>{ b.dataset.armed=""; b.textContent="Letzten Import rückgängig machen"; },4000); return; }
+  b.dataset.armed=""; b.textContent="Letzten Import rückgängig machen";
+  if (local){ events=events.filter(x=>x.imp!==lastImp); lsSet("termine",events); }
+  else { for (let i=0;i<mine.length;i+=20) await Promise.allSettled(mine.slice(i,i+20).map(x=>evCol.doc(x.id).delete())); }
+  $("impScrim").hidden=true; renderCal(); showNote(`${mine.length} importierte Termine gelöscht.`);
 });
 $("newEv").addEventListener("click", ()=>openEv(null));
 $("prev").addEventListener("click", ()=>{ view.setMonth(view.getMonth()-1); renderCal(); });
