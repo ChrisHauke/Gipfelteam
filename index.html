@@ -148,7 +148,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .dnum.out{opacity:.4}
 .dnum.today{background:var(--accent);color:var(--accent-fg);font-weight:700}
 .dnum.sel:not(.today){outline:2px solid var(--accent);outline-offset:-2px}
-.seg-ev{z-index:1;pointer-events:none;min-width:0;margin:0 1px;font:600 .64rem/17px var(--body);padding:0 3px;border-radius:4px;background:var(--cs);color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:clip}
+.seg-ev{z-index:1;cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0;margin:0 1px;font:600 .64rem/17px var(--body);padding:0 3px;border-radius:4px;background:var(--cs);color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:clip}
 .seg-ev.multi{background:var(--c);color:var(--surface)}
 .seg-ev.cont-l{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:0}
 .seg-ev.cont-r{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:0}
@@ -633,7 +633,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     </div>
     <div class="field" id="secBox"><span class="lbl">Geräteschutz</span><div id="secBody"><p class="small">Wird geladen …</p></div></div>
     <div class="field">
-      <p class="small">App-Version: 10.10.2026 · Kalender-Import</p>
+      <p class="small">App-Version: 10.10.2026 · Termine antippen</p>
     </div>
     <p class="err" id="sErr" hidden></p>
     <div class="actions">
@@ -896,7 +896,7 @@ function renderCal(){
     });
     for (const p of placed){
       const e=p.e;
-      cells+=`<span class="seg-ev c-${e.who} ${p.multi?"multi":""} ${p.cl?"cont-l":""} ${p.cr?"cont-r":""} ${affectsMe(e.who)?"":"dim"}" style="grid-column:${p.c0+1}/${p.c1+2};grid-row:${p.l+2}">${esc(e.title)}</span>`;
+      cells+=`<span class="seg-ev c-${e.who} ${p.multi?"multi":""} ${p.cl?"cont-l":""} ${p.cr?"cont-r":""} ${affectsMe(e.who)?"":"dim"}" style="grid-column:${p.c0+1}/${p.c1+2};grid-row:${p.l+2}" data-ev="${e.id}" data-occ="${e.occ}" role="button" tabindex="0" aria-label="${esc(e.title)} bearbeiten">${esc(e.title)}</span>`;
     }
     h+=`<div class="week" style="grid-template-rows:${rows}">${cells}</div>`;
   }
