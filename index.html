@@ -327,8 +327,8 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .srow .sv small{font-size:.75rem;color:var(--muted);margin-left:2px}
 .catpanel .ci.avg{border-top:1px dashed var(--line);padding-top:6px;margin-top:2px}
 .cathint{margin:8px 4px 0}
-.paid .srow{grid-template-columns:minmax(0,7em) minmax(0,1fr) auto}
-.paid .pa .st{background:var(--pa)} .paid .pb .st{background:var(--pb)}
+
+
 .payseg{grid-template-columns:1fr 1fr}
 .pr.est{color:var(--muted)}
 /* recipe book */
@@ -460,8 +460,6 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     <div class="chart" id="cChart"></div>
     <div class="sec-title" style="margin-top:24px" id="cCatsTitle" hidden>Wofür ihr ausgebt</div>
     <div id="cCats"></div>
-    <div class="sec-title" style="margin-top:24px" id="cPaidTitle" hidden>Wer hat bezahlt</div>
-    <div id="cPaid"></div>
     <div class="sec-title" style="margin-top:24px" id="cStoresTitle">Nach Laden</div>
     <div id="cStores"></div>
     <div class="sec-title" style="margin-top:24px" id="cListTitle">Einkäufe</div>
@@ -1563,24 +1561,6 @@ function renderCost(){
     ${est?`<p class="formhint cathint">${est===total?"Alle Beträge":"Teilweise"} geschätzt: Der Betrag eines Einkaufs wird nach typischen Preisen auf die abgehakten Artikel verteilt. Tippt auf eine Kategorie für Details.</p>`:`<p class="formhint cathint">Tippt auf eine Kategorie für Details.</p>`}`;
   }
 
-  // who paid
-  const paid={a:0,b:0,"":0};
-  for (const e of monthExp) paid[e.paidBy]+=e.cents;
-  const known=paid.a+paid.b;
-  $("cPaidTitle").hidden=!monthExp.length;
-  if (!monthExp.length){ $("cPaid").innerHTML=""; }
-  else {
-    const pmax=Math.max(paid.a,paid.b,paid[""],1);
-    const prow=(cls,label,v)=>`<div class="srow ${cls}"><span class="sn">${esc(label)}</span><span class="st" style="width:${v?Math.max(v/pmax*100,2):0}%"></span><span class="sv">${eur(v)}</span></div>`;
-    let bal="";
-    if (known){
-      const diff=paid.a-known/2;
-      if (Math.abs(diff)>=1){ const [from,to]= diff>0 ? [nameB(),nameA()] : [nameA(),nameB()];
-        bal=`Halbe-halbe gerechnet gibt ${esc(from)} ${esc(to)} <strong>${eur(Math.round(Math.abs(diff)))}</strong>${paid[""]?" (ohne Einkäufe ohne Angabe)":""}.`; }
-      else bal="Halbe-halbe gerechnet seid ihr quitt.";
-    }
-    $("cPaid").innerHTML=`<div class="stores paid">${prow("pa",nameA(),paid.a)}${prow("pb",nameB(),paid.b)}${paid[""]?prow("un","Ohne Angabe",paid[""]):""}</div>${bal?`<p class="formhint cathint">${bal}</p>`:""}`;
-  }
 
   // list
   $("cListTitle").textContent=`Einkäufe im ${MONTHS[costView.getMonth()]}`;
@@ -1590,7 +1570,7 @@ function renderCost(){
     return `<li class="ev exp" data-exp="${e.id}" tabindex="0" role="button" aria-label="Ausgabe ${eur(e.cents)} bearbeiten">
       <span class="bar"></span>
       <span class="tm">${WD[(d.getDay()+6)%7]}<small>${d.getDate()}.${d.getMonth()+1}.</small></span>
-      <div class="txt"><div class="name">${esc(meta)}</div>${(e.items.length||e.note||e.paidBy)?`<div class="meta">${[e.paidBy?`bezahlt von ${esc(labelFor(e.paidBy))}`:"", e.note?esc(e.note):e.items.length?`${e.items.length} Artikel`:""].filter(Boolean).join(" · ")}</div>`:""}</div>
+      <div class="txt"><div class="name">${esc(meta)}</div>${(e.items.length||e.note)?`<div class="meta">${e.note?esc(e.note):`${e.items.length} Artikel`}</div>`:""}</div>
       <span class="amt">${eur(e.cents)}</span>
     </li>`}).join("")}</ul>`
     : `<div class="hint">Noch keine Ausgaben in diesem Monat. Tippt auf „+ Ausgabe“, oder tragt den Betrag ein, wenn ihr nach dem Einkauf „Erledigte entfernen“ tippt.</div>`;
