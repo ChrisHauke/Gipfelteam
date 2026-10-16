@@ -1340,7 +1340,8 @@ $("grid").addEventListener("touchend", e=>{
   if (Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5 && Date.now()-swT<800){ swUsed=true; setTimeout(()=>swUsed=false,400); shiftMonth(dx<0?1:-1); }
 }, {passive:true});
 $("grid").addEventListener("click", e=>{ if(swUsed){ e.stopPropagation(); e.preventDefault(); } }, true);
-$("grid").addEventListener("click", e=>{ const b=e.target.closest("[data-day]"); if(!b) return; sel=b.dataset.day; renderCal(); });
+// Tap on a day opens a new event for that day; taps on an event bar are handled below and open that event.
+$("grid").addEventListener("click", e=>{ if(e.target.closest("[data-ev]")) return; const b=e.target.closest("[data-day]"); if(!b) return; sel=b.dataset.day; renderCal(); openEv(null); });
 function evFromTarget(t){ const r=t.closest("[data-ev]"); if(!r) return null; const ev=events.find(x=>x.id===r.dataset.ev); return ev ? {ev, occ:r.dataset.occ} : null; }
 $("v-cal").addEventListener("click", e=>{ const f=evFromTarget(e.target); if(f) openEv(f.ev, f.occ); });
 $("v-cal").addEventListener("keydown", e=>{ if(e.key!=="Enter"&&e.key!==" ") return; const f=evFromTarget(e.target); if(f){ e.preventDefault(); openEv(f.ev, f.occ);} });
