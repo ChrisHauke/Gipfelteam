@@ -346,6 +346,96 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .packcard p{margin:0;font-size:.88rem;color:var(--muted)}
 .danger{border:1px solid var(--danger);background:none;color:var(--danger);font:600 1rem var(--body);padding:13px 16px;border-radius:12px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- private area "Unter uns" (opened by long-pressing the logo) ---------- */
+.brand{position:relative;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.brand img{-webkit-touch-callout:none;-webkit-user-drag:none}
+.brand .vdot{position:absolute;left:26px;top:-1px;width:9px;height:9px;border-radius:50%;background:#d9668b;border:2px solid var(--bg)}
+.vault{--vbg:#1b141d;--vsur:#271d2a;--vsur2:#33263a;--vfg:#f4eaf2;--vmut:#b9a5b6;--vline:#3e2f44;--vacc:#e47b9e;--vacc2:#f2b37a;--vok:#7fc79a;
+  position:fixed;inset:0;z-index:15;background:var(--vbg);color:var(--vfg);overflow-y:auto;-webkit-overflow-scrolling:touch;color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.vault *{box-sizing:border-box}
+.vault :focus-visible{outline:2px solid var(--vacc);outline-offset:2px}
+.vault .vin:focus,.vault .vta:focus{outline:none;border-color:var(--vacc)}
+.vwrap{max-width:560px;margin:0 auto;padding:18px 16px 60px}
+.vhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vhead h2{margin:0;font:800 1.9rem/1.05 var(--display);letter-spacing:-.02em}
+.vhead h2 small{display:block;font:500 .82rem var(--body);color:var(--vmut);letter-spacing:0;margin-top:4px}
+.vbtn-ic{border:1px solid var(--vline);background:var(--vsur);color:var(--vfg);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer;flex:none}
+.vbtn-ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:18px -16px 0;padding:0 16px}
+.vnav::-webkit-scrollbar{display:none}
+.vnav button{flex:none;border:1px solid var(--vline);background:transparent;color:var(--vmut);border-radius:999px;padding:8px 14px;font:600 .88rem var(--body);cursor:pointer;position:relative}
+.vnav button[aria-selected="true"]{background:var(--vacc);border-color:var(--vacc);color:#2a1020}
+.vnav .n{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--vacc2);color:#2a1020;font-size:.72rem;margin-left:6px;padding:0 5px}
+.vsec{margin-top:22px}
+.vtitle{font:600 .76rem var(--body);text-transform:uppercase;letter-spacing:.1em;color:var(--vmut);margin:24px 4px 8px}
+.vcard{background:var(--vsur);border:1px solid var(--vline);border-radius:16px;padding:14px;display:grid;gap:10px}
+.vcard + .vcard{margin-top:8px}
+.vcard.hi{border-color:var(--vacc);background:linear-gradient(160deg,#3a2232,var(--vsur) 70%)}
+.vcard .who{font:600 .8rem var(--body);color:var(--vmut)}
+.vcard .big{font:800 1.35rem/1.15 var(--display)}
+.vcard .txt{color:var(--vfg);white-space:pre-wrap;overflow-wrap:anywhere}
+.vmuted{color:var(--vmut);font-size:.88rem;margin:0}
+.vrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.vchips{display:flex;gap:6px;flex-wrap:wrap}
+.vchips button{border:1px solid var(--vline);background:var(--vsur2);color:var(--vfg);border-radius:999px;padding:8px 13px;font:500 .9rem var(--body);cursor:pointer}
+.vchips button[aria-pressed="true"]{background:var(--vacc);border-color:var(--vacc);color:#2a1020;font-weight:600}
+.vprim{border:0;background:var(--vacc);color:#2a1020;font:700 1rem var(--body);padding:13px 16px;border-radius:12px;cursor:pointer;flex:1}
+.vprim:disabled{opacity:.45}
+.vsec2{border:1px solid var(--vline);background:transparent;color:var(--vfg);font:600 .92rem var(--body);padding:10px 14px;border-radius:12px;cursor:pointer}
+.vlink{border:0;background:none;color:var(--vmut);font:500 .85rem var(--body);padding:4px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.vin,.vta{width:100%;font:16px var(--body);color:var(--vfg);background:var(--vsur2);border:1px solid var(--vline);border-radius:12px;padding:11px 12px}
+.vta{min-height:84px;resize:vertical}
+.vin::placeholder,.vta::placeholder{color:#8d7a8b}
+.vlbl{font:600 .76rem var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--vmut)}
+.vfield{display:grid;gap:6px}
+.vstatus{display:inline-flex;align-items:center;gap:6px;font:600 .82rem var(--body);padding:4px 10px;border-radius:999px;background:var(--vsur2);color:var(--vmut);justify-self:start}
+.vstatus.yes{background:#20392b;color:var(--vok)} .vstatus.later{background:#3d3020;color:var(--vacc2)}
+.vans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.vans button{border:1px solid var(--vline);background:var(--vsur2);color:var(--vfg);border-radius:12px;padding:11px 4px;font:600 .9rem var(--body);cursor:pointer}
+.vans button.y{background:var(--vacc);border-color:var(--vacc);color:#2a1020}
+/* matching */
+.vprog{height:6px;border-radius:999px;background:var(--vsur2);overflow:hidden}
+.vprog i{display:block;height:100%;background:var(--vacc);border-radius:999px}
+.vq{display:grid;gap:12px;text-align:center;padding:22px 16px}
+.vq .big{font-size:1.5rem}
+.vq .grp{font:600 .74rem var(--body);text-transform:uppercase;letter-spacing:.1em;color:var(--vacc2)}
+.vvote{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vvote button{border:1px solid var(--vline);background:var(--vsur2);color:var(--vfg);border-radius:14px;padding:14px 4px;font:700 .95rem var(--body);cursor:pointer}
+.vvote button.y{background:var(--vacc);border-color:var(--vacc);color:#2a1020}
+.vvote button.m{background:#3d3020;border-color:#5a4528;color:var(--vacc2)}
+.vlist{list-style:none;margin:0;padding:0;background:var(--vsur);border:1px solid var(--vline);border-radius:16px;overflow:hidden}
+.vlist li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--vline);min-height:50px}
+.vlist li:first-child{border-top:0}
+.vlist .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.vlist .t small{display:block;color:var(--vmut);font-size:.8rem}
+.vtag{flex:none;font:700 .75rem var(--body);padding:3px 9px;border-radius:999px}
+.vtag.y{background:var(--vacc);color:#2a1020} .vtag.m{background:#3d3020;color:var(--vacc2)}
+.vmini{display:flex;gap:4px;flex:none}
+.vmini button{border:1px solid var(--vline);background:transparent;color:var(--vmut);border-radius:8px;width:34px;height:30px;font:700 .8rem var(--body);cursor:pointer;padding:0}
+.vmini button[aria-pressed="true"].y{background:var(--vacc);border-color:var(--vacc);color:#2a1020}
+.vmini button[aria-pressed="true"].m{background:#3d3020;border-color:#5a4528;color:var(--vacc2)}
+.vmini button[aria-pressed="true"].n{background:var(--vsur2);color:var(--vfg)}
+.vx{flex:none;border:0;background:none;color:var(--vmut);font-size:1.25rem;width:32px;height:32px;border-radius:8px;cursor:pointer}
+/* jar */
+.vjar{display:grid;justify-items:center;gap:14px;text-align:center;padding:26px 16px}
+.vjar svg{width:74px;height:74px;stroke:var(--vacc2);fill:none;stroke-width:1.5}
+.vslip{background:#f6e7c8;color:#3a2a1a;border-radius:6px;padding:18px 16px;font:600 1.15rem/1.35 var(--body);transform:rotate(-1.2deg);box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:100%;overflow-wrap:anywhere}
+/* log */
+.vhearts{color:var(--vacc);letter-spacing:2px}
+.vhpick{display:flex;gap:4px}
+.vhpick button{border:0;background:none;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--vline);padding:2px}
+.vhpick button.on{color:var(--vacc)}
+/* lock */
+.vlock{min-height:100%;display:grid;place-items:center;padding:24px 16px}
+.vlockbox{width:100%;max-width:340px;display:grid;gap:14px;justify-items:center;text-align:center}
+.vlockbox svg{width:44px;height:44px;stroke:var(--vacc);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.vlockbox h2{margin:0;font:800 1.6rem var(--display)}
+.vpin{text-align:center;letter-spacing:.5em;font:700 1.5rem var(--body)!important;padding:12px!important}
+.verr{color:#ff9b9b;font-size:.9rem;margin:0;min-height:1.2em}
+.vfoot{margin-top:34px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.vtoast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:#f4eaf2;color:#2a1020;font:600 .92rem var(--body);padding:10px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:calc(100% - 32px)}
 </style>
 </head>
 <body>
@@ -466,6 +556,8 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     <div id="cList"></div>
   </section>
 </div>
+
+<div class="vault" id="vault" hidden role="dialog" aria-modal="true" aria-label="Unter uns"></div>
 
 <div class="dock" id="dock" hidden>
   <div class="shopbar" id="shopbar">
@@ -2520,6 +2612,7 @@ function start(isNew){
     meals=snap.docs.map(d=>({id:d.id,...d.data()})).filter(validMeal).map(d=>normMeal(d.id,d));
     if(!$("v-meals").hidden) renderMeals();
   }, ()=>{});
+  vSubscribe();
   recipesCol=db.collection("recipes");
   recipesCol.onSnapshot(snap=>{
     recipes=snap.docs.map(d=>({id:d.id,...d.data()})).filter(validRecipe).map(d=>normRecipe(d.id,d));
@@ -2535,6 +2628,293 @@ function start(isNew){
   }, ()=>{});
   });
 }
+
+
+/* =================== private area "Unter uns" ===================
+   Opened by long-pressing the logo, protected by a shared PIN (stored only as a salted SHA-256 hash).
+   Everything lives in the collection "intim" of the shared space:
+     pin            {hash, salt}
+     profile-a / -b {likes, tryout, nogo, mood}
+     votes-a / -b   {v:{ideaId:"y"|"m"|"n"}}   only matches are ever shown in the UI
+     other docs     {kind:"req"|"idea"|"jar"|"log", ...}
+   The area locks itself when the app goes to the background and after 5 minutes without input. */
+const V_MOODS=[["kuschelig","Kuschelig"],["zaertlich","Zärtlich"],["verspielt","Verspielt"],["leidenschaftlich","Leidenschaftlich"],["wild","Wild"],["ueberrasch","Überrasch mich"]];
+const V_WHEN=[["jetzt","Jetzt gleich"],["abend","Heute Abend"],["morgen","Morgen"],["wochenende","Am Wochenende"],["bald","Bald mal"]];
+const V_ANS={yes:"Ja, gern", later:"Lieber später", no:"Heute nicht"};
+const V_IDEAS=[
+  ["Zärtlich",[["massage","Massage mit warmem Öl"],["kuss","Lange kuscheln und küssen"],["bad","Zusammen baden oder duschen"],["langsam","Ganz langsam, ohne Eile"],["oral","Sich gegenseitig mit dem Mund verwöhnen"],["verwoehnen","Einer wird nur verwöhnt"]]],
+  ["Stimmung",[["kerzen","Kerzenlicht und Musik"],["hotel","Eine Hotelnacht nur für uns"],["film","Zusammen einen erotischen Film schauen"],["texte","Sexy Nachrichten tagsüber"],["geschichte","Eine erotische Geschichte vorlesen"],["ohnehandy","Ein ganzer Abend ohne Handy"]]],
+  ["Spielerisch",[["augenbinde","Augenbinde"],["fesseln","Leichtes Fesseln"],["rollenspiel","Rollenspiel"],["strip","Striptease"],["spiel","Würfel- oder Kartenspiel"],["outfit","Dessous oder ein besonderes Outfit"],["eis","Eiswürfel und Wärme"]]],
+  ["Neues",[["toy","Ein Spielzeug ausprobieren"],["stellung","Eine neue Stellung ausprobieren"],["bestimmen","Einer bestimmt, der andere folgt"],["fantasie","Sich Fantasien erzählen"],["spiegel","Vor dem Spiegel"],["fotos","Fotos nur für uns"]]],
+  ["Wann & wo",[["morgens","Morgens vor dem Aufstehen"],["quickie","Ein Quickie zwischendurch"],["ort","Ein neuer Ort in der Wohnung"],["urlaub","Im Urlaub an einem besonderen Ort"]]]
+];
+let vCol=null, vDocs=[], vLoaded=false, vOpen=false, vUnlocked=false, vTab="lust", vLast=0, vFails=0, vWaitUntil=0;
+let vDraft={mood:"", when:"", note:"", idea:""}, vLogHearts=2, vDrawn=null, vPinStep=null, vPinFirst="", vShowRated=false;
+const vMe = () => meKey();
+const vOther = () => vMe()==="a" ? "b" : "a";
+const vName = w => w==="a" ? nameA() : nameB();
+const vGet = id => vDocs.find(d=>d.id===id);
+const vOfKind = k => vDocs.filter(d=>d.kind===k);
+function vIdeas(){
+  const base=V_IDEAS.flatMap(([g,list])=>list.map(([id,t])=>({id,t,g})));
+  const own=vOfKind("idea").sort((a,b)=>a.at-b.at).map(d=>({id:"c_"+d.id, t:d.text, g:"Eure Ideen", by:d.by, docId:d.id}));
+  return base.concat(own);
+}
+const vVotes = w => ((vGet("votes-"+w)||{}).v)||{};
+function vRel(ts){
+  const d=Date.now()-ts, m=Math.round(d/60000);
+  if (m<1) return "gerade eben"; if (m<60) return `vor ${m} Min.`;
+  const t=new Date(ts), now=new Date(), hm=`${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  if (t.toDateString()===now.toDateString()) return "heute "+hm;
+  const y=new Date(now); y.setDate(y.getDate()-1); if (t.toDateString()===y.toDateString()) return "gestern "+hm;
+  return `${t.getDate()}.${t.getMonth()+1}. ${hm}`;
+}
+async function vHash(pin, salt){
+  const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt+":"+pin));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function vWrite(fn){ try{ await fn(); }catch(e){ vToast(e && e.code==="permission-denied" ? "Nicht gespeichert: Die Firestore-Regeln erlauben die Sammlung „intim“ noch nicht." : "Nicht gespeichert. Prüfe die Verbindung."); } }
+const vAdd = d => vWrite(()=>vCol.add({...d, by:vMe(), at:Date.now()}));
+const vUpd = (id,d) => vWrite(()=>vCol.doc(id).update(d));
+const vSet = (id,d) => vWrite(()=>vCol.doc(id).set(d));
+const vDel = id => vWrite(()=>vCol.doc(id).delete());
+
+function vSubscribe(){
+  if (vCol || !db) return;
+  vCol=db.collection("intim");
+  vCol.onSnapshot(snap=>{
+    vDocs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    vLoaded=true; vBadge(); vSoftRender();
+  }, ()=>{ vLoaded=true; vSoftRender(); });
+}
+// don't throw away what someone is typing when the partner changes something at the same moment
+let vDirty=false;
+function vSoftRender(){
+  if (!vOpen) return;
+  const a=document.activeElement;
+  if (vUnlocked && a && $("vault").contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.id!=="vPin"){ vDirty=true; return; }
+  vRender();
+}
+function vToast(msg){
+  let n=document.getElementById("vToast");
+  if(!n){ n=document.createElement("div"); n.id="vToast"; n.className="vtoast"; document.body.appendChild(n); }
+  n.textContent=msg; n.hidden=false; clearTimeout(vToast.t); vToast.t=setTimeout(()=>n.hidden=true,2600);
+}
+// small dot on the logo when the partner sent a request that is still open
+function vPendingForMe(){ const me=vMe(); if(!me) return []; const lim=Date.now()-3*864e5; return vOfKind("req").filter(r=>r.by!==me && r.status==="open" && r.at>lim); }
+function vBadge(){
+  const b=document.querySelector(".brand"); if(!b) return;
+  let dot=b.querySelector(".vdot"); const show=vPendingForMe().length>0;
+  if (show && !dot){ dot=document.createElement("i"); dot.className="vdot"; b.appendChild(dot); }
+  if (!show && dot) dot.remove();
+}
+
+/* open / close / lock */
+function vOpenArea(){ vSubscribe(); vOpen=true; vUnlocked=false; vPinStep=null; $("vault").hidden=false; document.body.style.overflow="hidden"; vRender(); }
+function vClose(){ vOpen=false; vUnlocked=false; vDrawn=null; $("vault").hidden=true; $("vault").innerHTML=""; document.body.style.overflow=""; }
+document.addEventListener("visibilitychange", ()=>{ if (document.hidden && vOpen) vClose(); });
+setInterval(()=>{ if (vOpen && vUnlocked && Date.now()-vLast>5*60000) vClose(); }, 15000);
+(function(){
+  const brand=document.querySelector(".brand"); if(!brand) return;
+  let t=null;
+  const start=e=>{ if(e.button>0) return; clearTimeout(t); t=setTimeout(()=>{ t=null; if(navigator.vibrate) navigator.vibrate(15); vOpenArea(); }, 700); };
+  const stop=()=>{ clearTimeout(t); t=null; };
+  brand.addEventListener("pointerdown", start);
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>brand.addEventListener(ev, stop));
+  brand.addEventListener("contextmenu", e=>e.preventDefault());
+})();
+
+/* rendering */
+const vIcon={
+  lock:'<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
+  close:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  jar:'<svg viewBox="0 0 64 64"><path d="M22 8h20v6H22zM20 14h24c2 4 6 8 6 16v20a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6V30c0-8 4-12 6-16z"/><path d="M24 34h10M28 41h12M23 47h9"/></svg>'
+};
+function vRender(){
+  const el=$("vault");
+  if (!vUnlocked){ el.innerHTML=vLockView(); setTimeout(()=>{ const i=$("vPin"); if(i) i.focus(); },60); return; }
+  const pend=vPendingForMe().length;
+  const tabs=[["lust","Lust",pend],["match","Matching",0],["profil","Profile",0],["glas","Glas",0],["log","Logbuch",0]];
+  el.innerHTML=`<div class="vwrap">
+    <div class="vhead"><h2>Unter uns<small>Nur für ${esc(nameA())} & ${esc(nameB())}</small></h2>
+      <button class="vbtn-ic" type="button" data-v="close" aria-label="Sperren und schließen">${vIcon.lock}</button></div>
+    <nav class="vnav" role="tablist">${tabs.map(([k,l,n])=>`<button type="button" role="tab" data-vtab="${k}" aria-selected="${k===vTab}">${l}${n?`<span class="n">${n}</span>`:""}</button>`).join("")}</nav>
+    <div class="vsec">${!vMe() ? vNeedMe() : vTab==="lust"?vLust():vTab==="match"?vMatch():vTab==="profil"?vProfile():vTab==="glas"?vJar():vLog()}</div>
+    <div class="vfoot"><button class="vlink" type="button" data-v="pinchange">PIN ändern</button><button class="vlink" type="button" data-v="close">Sperren</button></div>
+  </div>`;
+}
+function vNeedMe(){ return `<div class="vcard"><div class="big">Wer bist du?</div><p class="vmuted">Stell zuerst in den Einstellungen (Zahnrad) unter „Ich bin“ ein, wer dieses Gerät benutzt. Dann weiß die App, welche Anfragen und Bewertungen deine sind.</p></div>`; }
+
+function vLockView(){
+  const pinDoc=vGet("pin");
+  const setting = vPinStep==="change" || (!pinDoc && vLoaded);
+  let title, hint, btn;
+  if (!vLoaded){ title="Unter uns"; hint="Einen Moment …"; btn=""; }
+  else if (setting){ title= vPinFirst ? "PIN wiederholen" : (vPinStep==="change"?"Neue PIN":"PIN festlegen");
+    hint= vPinFirst ? "Zur Sicherheit noch einmal." : "Wählt eine gemeinsame PIN mit 4 bis 8 Ziffern. Ihr braucht sie beide, um diesen Bereich zu öffnen."; btn= vPinFirst?"Speichern":"Weiter"; }
+  else { title="Unter uns"; hint="PIN eingeben"; btn="Öffnen"; }
+  return `<div class="vlock"><form class="vlockbox" id="vPinForm" autocomplete="off">
+    ${vIcon.lock}<h2>${title}</h2><p class="vmuted">${hint}</p>
+    ${vLoaded?`<input class="vin vpin" id="vPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" aria-label="PIN">
+    <p class="verr" id="vErr"></p>
+    <button class="vprim" type="submit" style="width:100%">${btn}</button>`:""}
+    <button class="vlink" type="button" data-v="close">Zurück zur App</button>
+  </form></div>`;
+}
+
+function vLust(){
+  const me=vMe(), other=vOther(), reqs=vOfKind("req").sort((a,b)=>b.at-a.at);
+  const lim=Date.now()-3*864e5;
+  const incoming=reqs.filter(r=>r.by!==me && r.status==="open" && r.at>lim);
+  const mine=reqs.filter(r=>r.by===me && r.at>lim);
+  const past=reqs.filter(r=>!incoming.includes(r) && !mine.includes(r)).slice(0,8);
+  const moodL=k=>(V_MOODS.find(m=>m[0]===k)||[,""])[1], whenL=k=>(V_WHEN.find(m=>m[0]===k)||[,""])[1];
+  const ideaL=id=>{ const i=vIdeas().find(x=>x.id===id); return i?i.t:""; };
+  const card=(r,cls,inner)=>`<div class="vcard ${cls}">
+      <div class="who">${r.by===me?"Deine Anfrage":esc(vName(r.by))} · ${vRel(r.at)}</div>
+      <div class="big">${esc(moodL(r.mood)||"Lust auf dich")}${r.when?` <span style="color:var(--vmut);font-weight:600">· ${esc(whenL(r.when))}</span>`:""}</div>
+      ${r.idea&&ideaL(r.idea)?`<div class="vrow"><span class="vtag y">${esc(ideaL(r.idea))}</span></div>`:""}
+      ${r.note?`<div class="txt">${esc(r.note)}</div>`:""}${inner}</div>`;
+  const status=r=> r.status==="open" ? `<span class="vstatus">Wartet auf Antwort</span>`
+    : `<span class="vstatus ${r.status}">${esc(vName(other)+": "+V_ANS[r.status])}</span>`;
+  const matches=vMatches();
+  let h="";
+  if (incoming.length){ h+=`<div class="vtitle" style="margin-top:0">Für dich</div>`+incoming.map(r=>card(r,"hi",`<div class="vans">
+      <button type="button" class="y" data-vans="yes" data-id="${r.id}">${V_ANS.yes}</button>
+      <button type="button" data-vans="later" data-id="${r.id}">${V_ANS.later}</button>
+      <button type="button" data-vans="no" data-id="${r.id}">${V_ANS.no}</button></div>`)).join(""); }
+  if (mine.length){ h+=`<div class="vtitle"${incoming.length?"":' style="margin-top:0"'}>Von dir</div>`+mine.map(r=>card(r,"",`<div class="vrow" style="justify-content:space-between">${status(r)}<button class="vlink" type="button" data-vdel="${r.id}">${r.status==="open"?"Zurücknehmen":"Entfernen"}</button></div>`)).join(""); }
+  h+=`<div class="vtitle"${incoming.length||mine.length?"":' style="margin-top:0"'}>Heute hätte ich Lust auf …</div>
+    <div class="vcard">
+      <div class="vfield"><span class="vlbl">Stimmung</span><div class="vchips">${V_MOODS.map(([k,l])=>`<button type="button" data-vmood="${k}" aria-pressed="${vDraft.mood===k}">${l}</button>`).join("")}</div></div>
+      <div class="vfield"><span class="vlbl">Wann</span><div class="vchips">${V_WHEN.map(([k,l])=>`<button type="button" data-vwhen="${k}" aria-pressed="${vDraft.when===k}">${l}</button>`).join("")}</div></div>
+      ${matches.length?`<div class="vfield"><span class="vlbl">Etwas von euren Treffern? (optional)</span><div class="vchips">${matches.slice(0,12).map(m=>`<button type="button" data-videa="${m.id}" aria-pressed="${vDraft.idea===m.id}">${esc(m.t)}</button>`).join("")}</div></div>`:""}
+      <div class="vfield"><span class="vlbl">Ein paar Worte (optional)</span><textarea class="vta" id="vNote" maxlength="300" placeholder="z. B. Ich denk schon den ganzen Tag an dich …">${esc(vDraft.note)}</textarea></div>
+      <div class="vrow"><button class="vprim" type="button" data-v="send" ${vDraft.mood?"":"disabled"}>An ${esc(vName(other))} senden</button></div>
+      <p class="vmuted">${esc(vName(other))} sieht die Anfrage, sobald der Bereich geöffnet wird, und am Logo erscheint ein kleiner Punkt. „Heute nicht“ braucht keine Begründung.</p>
+    </div>`;
+  if (past.length) h+=`<div class="vtitle">Verlauf</div><ul class="vlist">${past.map(r=>`<li><div class="t">${esc(moodL(r.mood))}${r.when?" · "+esc(whenL(r.when)):""}<small>${r.by===me?"von dir":"von "+esc(vName(r.by))} · ${vRel(r.at)}${r.status!=="open"?" · "+esc(V_ANS[r.status]):" · ohne Antwort"}</small></div><button class="vx" type="button" data-vdel="${r.id}" aria-label="Entfernen">×</button></li>`).join("")}</ul>`;
+  return h;
+}
+
+function vMatches(){
+  const a=vVotes("a"), b=vVotes("b");
+  return vIdeas().filter(i=>(a[i.id]==="y"||a[i.id]==="m") && (b[i.id]==="y"||b[i.id]==="m"))
+    .map(i=>({...i, both:a[i.id]==="y"&&b[i.id]==="y"})).sort((x,y)=>(y.both-x.both));
+}
+function vMatch(){
+  const me=vMe(), other=vOther(), mv=vVotes(me), ov=vVotes(other), ideas=vIdeas();
+  const done=ideas.filter(i=>mv[i.id]).length, odone=ideas.filter(i=>ov[i.id]).length;
+  const next=ideas.find(i=>!mv[i.id]);
+  const matches=vMatches();
+  let h=`<div class="vcard"><div class="vrow" style="justify-content:space-between"><span class="vlbl">Du: ${done} von ${ideas.length}</span><span class="vlbl">${esc(vName(other))}: ${odone} von ${ideas.length}</span></div>
+    <div class="vprog"><i style="width:${ideas.length?done/ideas.length*100:0}%"></i></div>
+    <p class="vmuted">Jeder bewertet für sich. Angezeigt wird nur, was ihr beide mit „Ja“ oder „Vielleicht“ bewertet habt. Ein „Nein“ sieht der andere nie.</p></div>`;
+  if (next) h+=`<div class="vcard vq" style="margin-top:12px"><div class="grp">${esc(next.g)}</div><div class="big">${esc(next.t)}</div>
+      <div class="vvote"><button type="button" class="n" data-vvote="n" data-idea="${next.id}">Nein</button><button type="button" class="m" data-vvote="m" data-idea="${next.id}">Vielleicht</button><button type="button" class="y" data-vvote="y" data-idea="${next.id}">Ja</button></div></div>`;
+  else h+=`<div class="vcard" style="margin-top:12px"><div class="big">Alles bewertet</div><p class="vmuted">${odone<ideas.length?`Sobald ${esc(vName(other))} auch fertig ist, seht ihr alle Treffer.`:"Ergänzt eigene Ideen, dann geht es weiter."}</p></div>`;
+  h+=`<div class="vtitle">Eure Treffer${matches.length?` (${matches.length})`:""}</div>`;
+  h+= matches.length ? `<ul class="vlist">${matches.map(m=>`<li><div class="t">${esc(m.t)}<small>${esc(m.g)}</small></div><span class="vtag ${m.both?"y":"m"}">${m.both?"Beide Ja":"Vielleicht"}</span></li>`).join("")}</ul>`
+    : `<p class="vmuted" style="margin:0 4px">Noch keine Treffer. Die erscheinen, sobald ihr beide dieselbe Idee bewertet habt.</p>`;
+  h+=`<div class="vtitle">Eigene Idee ergänzen</div><form class="vrow" id="vIdeaForm" autocomplete="off"><input class="vin" id="vIdea" maxlength="80" placeholder="Was wolltest du schon immer mal …" style="flex:1;min-width:0"><button class="vsec2" type="submit">+</button></form>
+    <p class="vmuted" style="margin:6px 4px 0">${esc(vName(other))} sieht neue Ideen als nächste Frage, aber nicht, von wem sie stammen.</p>`;
+  h+=`<div class="vtitle"><button class="vlink" type="button" data-v="rated">${vShowRated?"Meine Bewertungen ausblenden":"Meine Bewertungen ändern"}</button></div>`;
+  if (vShowRated) h+=`<ul class="vlist">${ideas.filter(i=>mv[i.id]).map(i=>`<li><div class="t">${esc(i.t)}</div><div class="vmini">${[["n","N"],["m","?"],["y","Ja"]].map(([k,l])=>`<button type="button" class="${k}" data-vvote="${k}" data-idea="${i.id}" aria-pressed="${mv[i.id]===k}" aria-label="${k==="y"?"Ja":k==="m"?"Vielleicht":"Nein"}">${l}</button>`).join("")}</div>${i.docId&&i.by===me?`<button class="vx" type="button" data-vdel="${i.docId}" aria-label="Idee löschen">×</button>`:""}</li>`).join("")||`<li><div class="t vmuted">Noch nichts bewertet.</div></li>`}</ul>`;
+  return h;
+}
+
+const V_PF=[["likes","Das mag ich besonders"],["mood","Das bringt mich in Stimmung"],["tryout","Würde ich gern mal ausprobieren"],["nogo","Meine No-Gos"]];
+function vProfile(){
+  const me=vMe(), other=vOther(), mp=vGet("profile-"+me)||{}, op=vGet("profile-"+other)||{};
+  const empty=V_PF.every(([k])=>!op[k]);
+  return `<div class="vtitle" style="margin-top:0">${esc(vName(other))}</div>
+    <div class="vcard">${empty?`<p class="vmuted">${esc(vName(other))} hat das Profil noch nicht ausgefüllt.</p>`
+      : V_PF.filter(([k])=>op[k]).map(([k,l])=>`<div class="vfield"><span class="vlbl">${l}</span><div class="txt">${esc(op[k])}</div></div>`).join("")}</div>
+    <div class="vtitle">Dein Profil</div>
+    <form class="vcard" id="vProfForm" autocomplete="off">
+      ${V_PF.map(([k,l])=>`<div class="vfield"><label class="vlbl" for="vp-${k}">${l}</label><textarea class="vta" id="vp-${k}" maxlength="600">${esc(mp[k]||"")}</textarea></div>`).join("")}
+      <div class="vrow"><button class="vprim" type="submit">Speichern</button></div>
+      <p class="vmuted">Nur du kannst dein Profil bearbeiten. ${esc(vName(other))} kann es lesen.</p>
+    </form>`;
+}
+
+function vJar(){
+  const me=vMe(), slips=vOfKind("jar"), open=slips.filter(s=>!s.drawnAt), drawn=slips.filter(s=>s.drawnAt).sort((a,b)=>b.drawnAt-a.drawnAt);
+  const cur=vDrawn && vGet(vDrawn);
+  return `<div class="vcard vjar">${cur?`<div class="vslip">${esc(cur.text)}</div><p class="vmuted">Gezogen ${vRel(cur.drawnAt)}</p>`:vIcon.jar}
+      <div class="big">${open.length} ${open.length===1?"Zettel":"Zettel"} im Glas</div>
+      <button class="vprim" type="button" data-v="draw" ${open.length?"":"disabled"} style="width:100%">Zettel ziehen</button></div>
+    <div class="vtitle">Zettel einwerfen</div>
+    <form class="vrow" id="vJarForm" autocomplete="off"><input class="vin" id="vJarIn" maxlength="140" placeholder="Ein Wunsch, eine Idee, ein Abend …" style="flex:1;min-width:0"><button class="vsec2" type="submit">+</button></form>
+    <p class="vmuted" style="margin:6px 4px 0">Was im Glas liegt, bleibt verdeckt, bis es gezogen wird.</p>
+    ${drawn.length?`<div class="vtitle">Schon gezogen</div><ul class="vlist">${drawn.slice(0,20).map(s=>`<li><div class="t">${esc(s.text)}<small>${vRel(s.drawnAt)}</small></div>
+      <button class="vlink" type="button" data-vback="${s.id}">Zurück ins Glas</button>${s.by===me?`<button class="vx" type="button" data-vdel="${s.id}" aria-label="Löschen">×</button>`:""}</li>`).join("")}</ul>`:""}`;
+}
+
+function vLog(){
+  const me=vMe(), logs=vOfKind("log").sort((a,b)=>(b.date||"").localeCompare(a.date||"")||b.at-a.at);
+  return `<form class="vcard" id="vLogForm" autocomplete="off">
+      <div class="vrow"><input class="vin" id="vLogDate" type="date" value="${todayIso}" style="flex:1;min-width:0"><div class="vhpick" role="group" aria-label="Wie schön war es">${[1,2,3].map(n=>`<button type="button" data-vh="${n}" class="${n<=vLogHearts?"on":""}" aria-label="${n} ${n===1?"Herz":"Herzen"}">♥</button>`).join("")}</div></div>
+      <textarea class="vta" id="vLogText" maxlength="500" placeholder="Was war schön? Was wollt ihr nicht vergessen?"></textarea>
+      <div class="vrow"><button class="vprim" type="submit">Eintragen</button></div></form>
+    ${logs.length?`<div class="vtitle">Eure Erinnerungen</div>${logs.map(l=>{ const d=parse(l.date||todayIso);
+      return `<div class="vcard"><div class="vrow" style="justify-content:space-between"><span class="who">${WD[(d.getDay()+6)%7]}, ${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}</span><span class="vhearts">${"♥".repeat(Math.max(1,Math.min(3,l.hearts||1)))}</span></div>
+        ${l.text?`<div class="txt">${esc(l.text)}</div>`:""}<div class="vrow" style="justify-content:space-between"><span class="who">${l.by===me?"von dir":"von "+esc(vName(l.by))}</span>${l.by===me?`<button class="vlink" type="button" data-vdel="${l.id}">Löschen</button>`:""}</div></div>`; }).join("")}`
+      : `<p class="vmuted" style="margin:14px 4px 0">Noch keine Einträge.</p>`}`;
+}
+
+/* interaction */
+const vEl=$("vault");
+["pointerdown","keydown","input"].forEach(ev=>vEl.addEventListener(ev, ()=>{ vLast=Date.now(); }, true));
+vEl.addEventListener("input", e=>{ if (e.target.id==="vNote") vDraft.note=e.target.value; });
+vEl.addEventListener("focusout", ()=>{ setTimeout(()=>{ if (vDirty && !(document.activeElement && vEl.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))){ vDirty=false; vRender(); } },0); });
+vEl.addEventListener("click", async e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  const d=t.dataset;
+  if (d.v==="close"){ vClose(); return; }
+  if (d.v==="pinchange"){ vUnlocked=false; vPinStep="change"; vPinFirst=""; vRender(); return; }
+  if (d.vtab){ vTab=d.vtab; vDrawn=null; vRender(); vEl.scrollTop=0; return; }
+  if (d.vmood){ vDraft.mood = vDraft.mood===d.vmood?"":d.vmood; vRender(); return; }
+  if (d.vwhen){ vDraft.when = vDraft.when===d.vwhen?"":d.vwhen; vRender(); return; }
+  if (d.videa){ vDraft.idea = vDraft.idea===d.videa?"":d.videa; vRender(); return; }
+  if (d.v==="send"){ if(!vDraft.mood) return; const n=($("vNote")||{}).value||"";
+    await vAdd({kind:"req", mood:vDraft.mood, when:vDraft.when, idea:vDraft.idea, note:n.trim().slice(0,300), status:"open"});
+    vDraft={mood:"",when:"",note:"",idea:""}; vToast("Anfrage gesendet."); return; }
+  if (d.vans){ await vUpd(d.id,{status:d.vans, answeredAt:Date.now()}); return; }
+  if (d.vdel){ await vDel(d.vdel); if (vDrawn===d.vdel) vDrawn=null; return; }
+  if (d.vvote){ const me=vMe(); const cur=vVotes(me); await vSet("votes-"+me,{v:{...cur,[d.idea]:d.vvote}}); return; }
+  if (d.v==="rated"){ vShowRated=!vShowRated; vRender(); return; }
+  if (d.v==="draw"){ const open=vOfKind("jar").filter(s=>!s.drawnAt); if(!open.length) return;
+    const s=open[Math.floor(Math.random()*open.length)]; vDrawn=s.id; await vUpd(s.id,{drawnAt:Date.now()}); vRender(); return; }
+  if (d.vback){ await vUpd(d.vback,{drawnAt:0}); if(vDrawn===d.vback) vDrawn=null; return; }
+  if (d.vh){ vLogHearts=+d.vh; vEl.querySelectorAll("[data-vh]").forEach(b=>b.classList.toggle("on", +b.dataset.vh<=vLogHearts)); return; }
+});
+vEl.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const f=e.target;
+  if (f.id==="vPinForm"){
+    const pin=($("vPin").value||"").trim(), err=$("vErr");
+    if (!/^\d{4,8}$/.test(pin)){ err.textContent="Bitte 4 bis 8 Ziffern."; return; }
+    const pinDoc=vGet("pin"), setting = vPinStep==="change" || !pinDoc;
+    if (setting){
+      if (!vPinFirst){ vPinFirst=pin; vRender(); return; }
+      if (pin!==vPinFirst){ vPinFirst=""; vRender(); setTimeout(()=>{ const x=$("vErr"); if(x) x.textContent="Die PINs stimmen nicht überein. Nochmal von vorn."; },70); return; }
+      const salt=[...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,"0")).join("");
+      await vSet("pin",{hash:await vHash(pin,salt), salt});
+      vPinFirst=""; vPinStep=null; vUnlocked=true; vLast=Date.now(); vToast("PIN gespeichert."); vRender(); return;
+    }
+    if (Date.now()<vWaitUntil){ err.textContent="Zu viele Versuche. Kurz warten."; return; }
+    if (await vHash(pin,pinDoc.salt)===pinDoc.hash){ vFails=0; vUnlocked=true; vLast=Date.now(); vTab = vPendingForMe().length ? "lust" : vTab; vRender(); }
+    else { vFails++; if (vFails>=5){ vFails=0; vWaitUntil=Date.now()+30000; err.textContent="Falsche PIN. 30 Sekunden warten."; } else err.textContent="Falsche PIN."; $("vPin").value=""; }
+    return;
+  }
+  if (f.id==="vIdeaForm"){ const v=$("vIdea").value.trim(); if(!v) return; await vAdd({kind:"idea", text:v.slice(0,80)}); return; }
+  if (f.id==="vJarForm"){ const v=$("vJarIn").value.trim(); if(!v) return; await vAdd({kind:"jar", text:v.slice(0,140), drawnAt:0}); vToast("Zettel liegt im Glas."); return; }
+  if (f.id==="vLogForm"){ const txt=$("vLogText").value.trim(), date=$("vLogDate").value||todayIso; if(!txt) return;
+    await vAdd({kind:"log", date, text:txt.slice(0,500), hearts:vLogHearts}); vLogHearts=2; return; }
+  if (f.id==="vProfForm"){ const me=vMe(), data={}; for (const [k] of V_PF) data[k]=$("vp-"+k).value.trim().slice(0,600);
+    await vSet("profile-"+me, data); vToast("Profil gespeichert."); return; }
+});
 
 $("createSpace").addEventListener("click", ()=>{ key=newKey(); start(true); });
 if (key) start(false);
