@@ -359,6 +359,8 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .vault .vin:focus,.vault .vta:focus{outline:none;border-color:var(--vacc)}
 .vwrap{max-width:560px;margin:0 auto;padding:18px 16px 60px}
 .vhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vback{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:var(--vacc);font:600 .95rem var(--body);padding:6px 8px 6px 0;margin:-4px 0 10px;cursor:pointer}
+.vback svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .vhead h2{margin:0;font:800 1.9rem/1.05 var(--display);letter-spacing:-.02em}
 .vhead h2 small{display:block;font:500 .82rem var(--body);color:var(--vmut);letter-spacing:0;margin-top:4px}
 .vbtn-ic{border:1px solid var(--vline);background:var(--vsur);color:var(--vfg);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer;flex:none}
@@ -2631,7 +2633,7 @@ function start(isNew){
     meals=snap.docs.map(d=>({id:d.id,...d.data()})).filter(validMeal).map(d=>normMeal(d.id,d));
     if(!$("v-meals").hidden) renderMeals();
   }, ()=>{});
-  vSubscribe();
+  vSubscribe(); vRestore();
   recipesCol=db.collection("recipes");
   recipesCol.onSnapshot(snap=>{
     recipes=snap.docs.map(d=>({id:d.id,...d.data()})).filter(validRecipe).map(d=>normRecipe(d.id,d));
@@ -2650,7 +2652,7 @@ function start(isNew){
 
 
 /* =================== private area "Unter uns" ===================
-   Opened by long-pressing the logo, protected by a shared PIN (stored only as a salted SHA-256 hash).
+   Opened by long-pressing the logo (no PIN; an old "pin" doc is simply ignored).
    Everything lives in the collection "intim" of the shared space:
      pin            {hash, salt}
      profile-a / -b {likes, tryout, nogo, mood, at}
@@ -2658,7 +2660,8 @@ function start(isNew){
      other docs     {kind:"req"|"idea"|"jar"|"log", by, at, ...}
        jar: {text, by, for, type:"gift"|"wish", drawnAt, doneAt}  – "for" is the person who draws it
    What counts as "new" (tab badges) is remembered per device in localStorage ("vseen").
-   The area locks itself when the app goes to the background and after 5 minutes without input. */
+   It stays open in the background for up to 5 minutes (also across an app restart), then closes.
+   "Zurück" in the header, the footer button and the phone's back gesture return to the main app. */
 const V_MOODS=[["kuschelig","Kuschelig"],["zaertlich","Zärtlich"],["verspielt","Verspielt"],["leidenschaftlich","Leidenschaftlich"],["wild","Wild"],["ueberrasch","Überrasch mich"]];
 const V_WHEN=[["jetzt","Jetzt gleich"],["abend","Heute Abend"],["morgen","Morgen"],["wochenende","Am Wochenende"],["bald","Bald mal"]];
 const V_ANS={yes:"Ja, gern", later:"Lieber später", no:"Heute nicht"};
@@ -2698,10 +2701,6 @@ function vRel(ts){
   if (t.toDateString()===now.toDateString()) return "heute "+hm;
   const y=new Date(now); y.setDate(y.getDate()-1); if (t.toDateString()===y.toDateString()) return "gestern "+hm;
   return `${t.getDate()}.${t.getMonth()+1}. ${hm}`;
-}
-async function vHash(pin, salt){
-  const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt+":"+pin));
-  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 async function vWrite(fn){ try{ await fn(); return true; }catch(e){ vToast(e && e.code==="permission-denied" ? "Nicht gespeichert: Die Firestore-Regeln erlauben die Sammlung „intim“ noch nicht." : "Nicht gespeichert. Prüfe die Verbindung."); return false; } }
 const vAdd = d => vWrite(()=>vCol.add({...d, by:vMe(), at:Date.now()}));
@@ -2764,10 +2763,32 @@ function vBadge(){
 }
 
 /* open / close / lock */
-function vOpenArea(){ vSubscribe(); vOpen=true; vUnlocked=false; vPinStep=null; vPinFirst=""; $("vault").hidden=false; document.body.style.overflow="hidden"; vRender(); }
-function vClose(){ vOpen=false; vUnlocked=false; vDrawn=null; $("vault").hidden=true; $("vault").innerHTML=""; document.body.style.overflow=""; vBadge(); }
-document.addEventListener("visibilitychange", ()=>{ if (document.hidden && vOpen) vClose(); });
-setInterval(()=>{ if (vOpen && vUnlocked && Date.now()-vLast>5*60000) vClose(); }, 15000);
+const V_KEEP=5*60000;
+function vOpenArea(){
+  vSubscribe(); vOpen=true; vUnlocked=true;
+  if (vLoaded && vMe()){ const n=vNew(); if (n.incoming||n.answers) vTab="lust"; else if (n.glas) vTab="glas"; else if (n.match) vTab="match"; } $("vault").hidden=false; document.body.style.overflow="hidden";
+  // an extra history entry lets the back gesture / back button close the area instead of leaving the app
+  try{ if (!(history.state && history.state.vault)) history.pushState({...(history.state||{}), vault:1}, ""); }catch(e){}
+  vRender(); $("vault").scrollTop=0;
+}
+function vClose(fromHistory){
+  if (!vOpen) return;
+  vOpen=false; vDrawn=null; $("vault").hidden=true; $("vault").innerHTML=""; document.body.style.overflow=""; lsSet("vopen",null); vBadge();
+  if (!fromHistory){ try{ if (history.state && history.state.vault) history.back(); }catch(e){} }
+}
+window.addEventListener("popstate", ()=>{ if (vOpen) vClose(true); });
+// in the background the area stays open; after more than 5 minutes away it is closed
+let vHiddenAt=0;
+document.addEventListener("visibilitychange", ()=>{
+  if (document.hidden){ if (vOpen){ vHiddenAt=Date.now(); lsSet("vopen",{at:vHiddenAt, tab:vTab}); } return; }
+  if (vOpen && vHiddenAt && Date.now()-vHiddenAt>V_KEEP) vClose();
+  vHiddenAt=0;
+});
+// iOS sometimes restarts a home-screen app in the background: reopen if that was less than 5 minutes ago
+function vRestore(){
+  const o=lsGet("vopen",null);
+  if (o && Date.now()-o.at<=V_KEEP){ if (o.tab) vTab=o.tab; vOpenArea(); } else lsSet("vopen",null);
+}
 (function(){
   const brand=document.querySelector(".brand"); if(!brand) return;
   let t=null;
@@ -2793,38 +2814,21 @@ const vHelp = k => `<details class="vhelp"><summary>So funktioniert's</summary><
 
 function vRender(){
   const el=$("vault");
-  if (!vUnlocked){ el.innerHTML=vLockView(); setTimeout(()=>{ const i=$("vPin"); if(i) i.focus(); },60); return; }
+  if (!vLoaded){ el.innerHTML=`<div class="vlock"><div class="vlockbox"><h2>Unter uns</h2><p class="vmuted">Einen Moment …</p><button class="vlink" type="button" data-v="close">Zurück zur App</button></div></div>`; return; }
   const n=vNew();
   const tabs=[["lust","Lust",n.lust],["match","Matching",n.match],["glas","Glas",n.glas],["profil","Profile",0],["log","Logbuch",0]];
   const body=!vMe() ? vNeedMe() : vTab==="lust"?vLust():vTab==="match"?vMatch():vTab==="profil"?vProfile():vTab==="glas"?vJar():vLog();
   el.innerHTML=`<div class="vwrap">
-    <div class="vhead"><h2>Unter uns<small>Nur für ${esc(nameA())} & ${esc(nameB())}</small></h2>
-      <button class="vbtn-ic" type="button" data-v="close" aria-label="Sperren und schließen">${vIcon.lock}</button></div>
+    <button class="vback" type="button" data-v="close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Zurück zur App</button>
+    <div class="vhead"><h2>Unter uns<small>Nur für ${esc(nameA())} & ${esc(nameB())}</small></h2></div>
     <nav class="vnav" role="tablist">${tabs.map(([k,l,c])=>`<button type="button" role="tab" data-vtab="${k}" aria-selected="${k===vTab}">${l}${c&&k!==vTab?`<span class="n">${c}</span>`:""}</button>`).join("")}</nav>
     <div class="vsec">${body}</div>
-    <div class="vfoot"><button class="vlink" type="button" data-v="pinchange">PIN ändern</button><button class="vlink" type="button" data-v="close">Sperren</button></div>
+    <div class="vfoot"><button class="vsec2" type="button" data-v="close">Zurück zum Hauptmenü</button></div>
   </div>`;
   if (vMe()) vMarkTab(vTab);
   vBadge();
 }
 function vNeedMe(){ return `<div class="vcard"><div class="big">Wer bist du?</div><p class="vmuted">Stell zuerst in den Einstellungen (Zahnrad) unter „Ich bin“ ein, wer dieses Gerät benutzt. Dann weiß die App, welche Anfragen, Zettel und Bewertungen deine sind.</p></div>`; }
-
-function vLockView(){
-  const pinDoc=vGet("pin");
-  const setting = vPinStep==="change" || (!pinDoc && vLoaded);
-  let title, hint, btn;
-  if (!vLoaded){ title="Unter uns"; hint="Einen Moment …"; btn=""; }
-  else if (setting){ title= vPinFirst ? "PIN wiederholen" : (vPinStep==="change"?"Neue PIN":"PIN festlegen");
-    hint= vPinFirst ? "Zur Sicherheit noch einmal." : "Wählt eine gemeinsame PIN mit 4 bis 8 Ziffern. Ihr braucht sie beide, um diesen Bereich zu öffnen."; btn= vPinFirst?"Speichern":"Weiter"; }
-  else { title="Unter uns"; hint="PIN eingeben"; btn="Öffnen"; }
-  return `<div class="vlock"><form class="vlockbox" id="vPinForm" autocomplete="off">
-    ${vIcon.lock}<h2>${title}</h2><p class="vmuted">${hint}</p>
-    ${vLoaded?`<input class="vin vpin" id="vPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" aria-label="PIN">
-    <p class="verr" id="vErr"></p>
-    <button class="vprim" type="submit" style="width:100%">${btn}</button>`:""}
-    ${vPinStep==="change"?`<button class="vlink" type="button" data-v="pincancel">Abbrechen</button>`:`<button class="vlink" type="button" data-v="close">Zurück zur App</button>`}
-  </form></div>`;
-}
 
 const vMoodL=k=>(V_MOODS.find(m=>m[0]===k)||[,""])[1], vWhenL=k=>(V_WHEN.find(m=>m[0]===k)||[,""])[1];
 const vIdeaL=id=>{ const i=vIdeas().find(x=>x.id===id); return i?i.t:""; };
@@ -2961,8 +2965,6 @@ vEl.addEventListener("click", async e=>{
   const t=e.target.closest("button"); if(!t) return;
   const d=t.dataset;
   if (d.v==="close"){ vClose(); return; }
-  if (d.v==="pinchange"){ vUnlocked=false; vPinStep="change"; vPinFirst=""; vRender(); return; }
-  if (d.v==="pincancel"){ vPinStep=null; vPinFirst=""; vUnlocked=true; vLast=Date.now(); vRender(); return; }
   if (d.vtab){ vGo(d.vtab); return; }
   if (d.vmood){ vDraft.mood = vDraft.mood===d.vmood?"":d.vmood; vRender(); return; }
   if (d.vwhen){ vDraft.when = vDraft.when===d.vwhen?"":d.vwhen; vRender(); return; }
@@ -2994,25 +2996,6 @@ vEl.addEventListener("click", async e=>{
 vEl.addEventListener("submit", async e=>{
   e.preventDefault();
   const f=e.target;
-  if (f.id==="vPinForm"){
-    const pin=($("vPin").value||"").trim(), err=$("vErr");
-    if (!/^\d{4,8}$/.test(pin)){ err.textContent="Bitte 4 bis 8 Ziffern."; return; }
-    const pinDoc=vGet("pin"), setting = vPinStep==="change" || !pinDoc;
-    if (setting){
-      if (!vPinFirst){ vPinFirst=pin; vRender(); return; }
-      if (pin!==vPinFirst){ vPinFirst=""; vRender(); setTimeout(()=>{ const x=$("vErr"); if(x) x.textContent="Die PINs stimmen nicht überein. Nochmal von vorn."; },70); return; }
-      const salt=[...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,"0")).join("");
-      if (!(await vSet("pin",{hash:await vHash(pin,salt), salt}))){ vPinFirst=""; vRender(); return; }
-      vPinFirst=""; vPinStep=null; vUnlocked=true; vLast=Date.now(); vToast("PIN gespeichert."); vRender(); return;
-    }
-    if (Date.now()<vWaitUntil){ err.textContent="Zu viele Versuche. Kurz warten."; return; }
-    if (await vHash(pin,pinDoc.salt)===pinDoc.hash){
-      vFails=0; vUnlocked=true; vLast=Date.now();
-      const n=vNew(); if (n.incoming||n.answers) vTab="lust"; else if (n.glas) vTab="glas"; else if (n.match) vTab="match";
-      vRender(); }
-    else { vFails++; if (vFails>=5){ vFails=0; vWaitUntil=Date.now()+30000; err.textContent="Falsche PIN. 30 Sekunden warten."; } else err.textContent="Falsche PIN."; $("vPin").value=""; }
-    return;
-  }
   if (f.id==="vIdeaForm"){ const v=$("vIdea").value.trim(); if(!v) return; if (await vAdd({kind:"idea", text:v.slice(0,80)})) vToast("Idee ergänzt."); return; }
   if (f.id==="vJarForm"){ const v=$("vJarIn").value.trim(); if(!v){ $("vJarIn").focus(); return; }
     if (await vAdd({kind:"jar", text:v.slice(0,160), type:vJarType, for:vOther(), drawnAt:0, doneAt:0})){ vJarText=""; vToast("Liegt in "+vName(vOther())+"s Glas."); } return; }
