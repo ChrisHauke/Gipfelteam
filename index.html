@@ -229,8 +229,29 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .bcol{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;border:0;background:none;padding:0;cursor:pointer;color:var(--muted);font:500 .72rem var(--body)}
 .bcol .bv{font:600 .72rem var(--body);font-variant-numeric:tabular-nums;color:var(--fg);visibility:hidden;white-space:nowrap}
 .bcol.cur .bv{visibility:visible}
-.bcol .b{width:70%;max-width:34px;min-height:2px;border-radius:4px 4px 0 0;background:var(--accent-soft)}
-.bcol.cur .b{background:var(--accent)}
+.bcol .bstack{width:70%;max-width:34px;flex:1 1 auto;display:flex;flex-direction:column-reverse;justify-content:flex-start;opacity:.5}
+.bcol.cur .bstack{opacity:1}
+.bstack .sg{display:block;width:100%;min-height:2px}
+.bstack .sg:last-child{border-radius:4px 4px 0 0}
+.sg.sa,.blegend i.sa,.who .sa .wtrack span{background:var(--pa)}
+.sg.sb,.blegend i.sb,.who .sb .wtrack span{background:var(--pb)}
+.sg.su,.blegend i.su,.who .su .wtrack span{background:var(--line)}
+.blegend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;margin-top:8px;font-size:.78rem;color:var(--muted)}
+.blegend span{display:inline-flex;align-items:center;gap:6px}
+.blegend i{width:10px;height:10px;border-radius:3px;flex:none}
+.who{gap:14px}
+.wrow{display:grid;gap:5px}
+.wtop{display:flex;justify-content:space-between;gap:10px;font-size:.95rem}
+.wn{font-weight:600} .wv{font-weight:600;font-variant-numeric:tabular-nums}
+.wtrack{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}
+.wtrack span{display:block;height:100%;border-radius:999px}
+.wsub{font-size:.8rem;color:var(--muted)}
+.who .su .wn,.who .su .wv{color:var(--muted);font-weight:500}
+.whist{width:100%;margin-top:10px;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;font-size:.88rem;font-variant-numeric:tabular-nums}
+.whist th{font:600 .72rem var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:right;padding:10px 14px 6px}
+.whist th:first-child,.whist td:first-child{text-align:left}
+.whist td{padding:9px 14px;border-top:1px solid var(--line);text-align:right}
+.whist tr[data-ym]{cursor:pointer}
 .bcol.cur{color:var(--fg);font-weight:600}
 .blabels{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:6px;border-top:1px solid var(--line);padding-top:6px;text-align:center;font-size:.72rem;color:var(--muted)}
 .blabels .cur{color:var(--fg);font-weight:600}
@@ -569,8 +590,8 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
     </div>
     <div class="sec-title" style="margin-top:24px">Letzte 6 Monate</div>
     <div class="chart" id="cChart"></div>
-    <div class="sec-title" style="margin-top:24px" id="cCatsTitle" hidden>Wofür ihr ausgebt</div>
-    <div id="cCats"></div>
+    <div class="sec-title" style="margin-top:24px" id="cWhoTitle" hidden>Wer hat ausgegeben</div>
+    <div id="cWho"></div>
     <div class="sec-title" style="margin-top:24px" id="cStoresTitle">Nach Laden</div>
     <div id="cStores"></div>
     <div class="sec-title" style="margin-top:24px" id="cListTitle">Einkäufe</div>
@@ -974,7 +995,7 @@ $("clear").addEventListener("click", ()=>{
   if (done.length){
     let note=done.map(i=>i.name).join(", ");
     if (note.length>120) note=note.slice(0,117)+"…";
-    openExp(null,{afterShop:true, note, items:done.map(i=>({name:i.name, cat:aisleOf(i)}))});
+    openExp(null,{afterShop:true, note});
   }
 });
 
@@ -1551,8 +1572,9 @@ function itemsFromNote(note){
 }
 // One-time pass: older expenses without items get estimated categories from their note.
 let expLoaded=false, coupleLoaded=false, backfillBusy=false;
+// switched off: the spending-by-category analysis was removed (estimated items already stored stay untouched)
 async function maybeBackfill(){
-  if (!expLoaded || !coupleLoaded || backfillBusy || couple.estV>=1) return;
+  return;
   backfillBusy=true;
   try{
     for (const e of expenses){
@@ -1566,6 +1588,15 @@ async function maybeBackfill(){
   }catch(x){ showErr(x); }
   backfillBusy=false;
   if(!$("v-cost").hidden) renderCost();
+}
+// who paid: the chosen payer, else whoever entered it (older entries), else unknown
+function payerOf(e){
+  if (e.paidBy==="a"||e.paidBy==="b") return e.paidBy;
+  const c=e.createdBy;
+  if (c==="a"||c==="b") return c;
+  if (c && c===couple.uidA) return "a";
+  if (c && c===couple.uidB) return "b";
+  return "";
 }
 const validExp=d=>Number.isFinite(Number(d.cents)) && Number(d.cents)>0 && /^\d{4}-\d\d-\d\d$/.test(d.date||"");
 
@@ -1610,16 +1641,20 @@ function renderCost(){
   // 6-month chart
   const months=[];
   for (let i=5;i>=0;i--){ const d=new Date(costView); d.setMonth(d.getMonth()-i); months.push(d); }
-  const vals=months.map(d=>expenses.filter(e=>ymOf(e.date)===ymKey(d)).reduce((s,e)=>s+e.cents,0));
+  const byPerson=list=>{ const r={a:0,b:0,u:0}; for (const e of list){ const w=payerOf(e)||"u"; r[w]+=e.cents; } return r; };
+  const mSplit=months.map(d=>byPerson(expenses.filter(e=>ymOf(e.date)===ymKey(d))));
+  const vals=mSplit.map(m=>m.a+m.b+m.u);
   const maxV=Math.max(...vals, budget, 1)*1.12;
   const cols=months.map((d,i)=>{
-    const cur=i===5, h=vals[i]/maxV*100;
-    return `<button type="button" class="bcol ${cur?"cur":""}" data-ym="${ymKey(d)}" title="${MONTHS[d.getMonth()]}: ${eur(vals[i])}" aria-label="${MONTHS[d.getMonth()]} ${d.getFullYear()}: ${eur(vals[i])}">
-      <span class="bv">${vals[i]?eurR(vals[i]):""}</span><span class="b" style="height:${vals[i]?Math.max(h,1.5):0}%"></span></button>`;
+    const cur=i===5, m=mSplit[i], seg=(k,v)=>v?`<span class="sg ${k}" style="height:${v/maxV*100}%"></span>`:"";
+    const tip=`${MONTHS[d.getMonth()]}: ${eur(vals[i])} (${nameA()} ${eur(m.a)}, ${nameB()} ${eur(m.b)}${m.u?`, ohne Angabe ${eur(m.u)}`:""})`;
+    return `<button type="button" class="bcol ${cur?"cur":""}" data-ym="${ymKey(d)}" title="${esc(tip)}" aria-label="${esc(tip)}">
+      <span class="bv">${vals[i]?eurR(vals[i]):""}</span><span class="bstack">${seg("sa",m.a)}${seg("sb",m.b)}${seg("su",m.u)}</span></button>`;
   }).join("");
   const bline = budget>0 ? `<div class="bline" style="bottom:${budget/maxV*100}%"><span>Budget</span></div>` : "";
   $("cChart").innerHTML=`<div class="bars">${bline}${cols}</div>
-    <div class="blabels">${months.map((d,i)=>`<span class="${i===5?"cur":""}">${MON_SHORT[d.getMonth()]}</span>`).join("")}</div>`;
+    <div class="blabels">${months.map((d,i)=>`<span class="${i===5?"cur":""}">${MON_SHORT[d.getMonth()]}</span>`).join("")}</div>
+    <div class="blegend"><span><i class="sa"></i>${esc(nameA())}</span><span><i class="sb"></i>${esc(nameB())}</span>${mSplit.some(m=>m.u)?`<span><i class="su"></i>Ohne Angabe</span>`:""}</div>`;
 
   // stores
   const per={};
@@ -1631,50 +1666,24 @@ function renderCost(){
   $("cStores").innerHTML = rows.length ? `<div class="stores">${rows.map(([k,v])=>`
     <div class="srow"><span class="sn">${esc(k)}</span><span class="st" style="width:${Math.max(v/smax*100,2)}%"></span><span class="sv">${eur(v)}</span></div>`).join("")}</div>` : "";
 
-  // categories: from receipt items or estimated from the shopping list
-  const catSplit=list=>{
-    const cat={}, catItems={}; let unsplit=0, est=0;
-    for (const e of list){
-      if (!e.items.length){ unsplit+=e.cents; continue; }
-      if (isEst(e.items)) est+=e.cents;
-      const itemSum=e.items.reduce((t,i)=>t+i.cents,0);
-      for (const it of e.items){ cat[it.cat]=(cat[it.cat]||0)+it.cents; (catItems[it.cat]||(catItems[it.cat]=[])).push(it); }
-      const rest=e.cents-itemSum; if (Math.abs(rest)>=1){ cat.sonst=(cat.sonst||0)+rest; }
+  // who spent how much this month, plus the months before
+  {
+    const m=byPerson(monthExp), cnt={a:0,b:0,u:0};
+    for (const e of monthExp) cnt[payerOf(e)||"u"]++;
+    const tot=m.a+m.b+m.u;
+    $("cWhoTitle").hidden=!tot;
+    if (!tot) $("cWho").innerHTML="";
+    else {
+      const max=Math.max(m.a,m.b,m.u,1);
+      const row=(k,label,v,n)=>`<div class="wrow ${k}"><div class="wtop"><span class="wn">${esc(label)}</span><span class="wv">${eur(v)}</span></div>
+        <div class="wtrack"><span style="width:${v?Math.max(v/max*100,2):0}%"></span></div>
+        <div class="wsub">${Math.round(v/tot*100)} % · ${n} ${n===1?"Einkauf":"Einkäufe"}</div></div>`;
+      const hist=months.slice(0,5).map((d,i)=>({d,m:mSplit[i]})).filter(x=>x.m.a+x.m.b+x.m.u>0).reverse();
+      $("cWho").innerHTML=`<div class="stores who">${row("sa",nameA(),m.a,cnt.a)}${row("sb",nameB(),m.b,cnt.b)}${m.u?row("su","Ohne Angabe",m.u,cnt.u):""}</div>
+        ${hist.length?`<table class="whist"><thead><tr><th>Monat</th><th>${esc(nameA())}</th><th>${esc(nameB())}</th></tr></thead><tbody>${hist.map(x=>`<tr data-ym="${ymKey(x.d)}"><td>${MONTHS[x.d.getMonth()]}</td><td>${eur(x.m.a)}</td><td>${eur(x.m.b)}</td></tr>`).join("")}</tbody></table>`:""}
+        ${m.u?`<p class="formhint cathint">„Ohne Angabe“ sind ältere Einkäufe, bei denen nicht gespeichert wurde, wer bezahlt hat. Tippt auf so einen Einkauf, um es nachzutragen.</p>`:""}`;
     }
-    return {cat, catItems, unsplit, est};
-  };
-  const {cat, catItems, unsplit, est}=catSplit(monthExp);
-  // average of the 3 months before, for comparison
-  const prev3=[1,2,3].map(n=>{ const d=new Date(costView); d.setMonth(d.getMonth()-n); return ymKey(d); });
-  const avgCat={}; let prevMonthsWithData=0;
-  for (const ymk of prev3){
-    const r=catSplit(expenses.filter(e=>ymOf(e.date)===ymk));
-    if (Object.keys(r.cat).length) prevMonthsWithData++;
-    for (const [k,v] of Object.entries(r.cat)) avgCat[k]=(avgCat[k]||0)+v;
   }
-  if (prevMonthsWithData) for (const k in avgCat) avgCat[k]=Math.round(avgCat[k]/prevMonthsWithData);
-  const crow=Object.entries(cat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const catTotal=crow.reduce((t,r)=>t+r[1],0);
-  $("cCatsTitle").hidden=!crow.length;
-  if (!crow.length){
-    $("cCats").innerHTML="";
-  } else {
-    const cmax=Math.max(...crow.map(r=>r[1]), unsplit, 1);
-    $("cCats").innerHTML=`<div class="stores cats">${crow.map(([k,v])=>{
-      const open=openCat===k;
-      const agg=new Map();
-      for (const i of catItems[k]||[]){ const key=fold(i.name); const a=agg.get(key)||{name:i.name,n:0,c:0}; a.n++; a.c+=i.cents; agg.set(key,a); }
-      const top=[...agg.values()].sort((a,b)=>b.c-a.c).slice(0,8);
-      const avg=avgCat[k];
-      const pct=Math.round(v/catTotal*100);
-      return `<button type="button" class="srowbtn" data-cat="${k}" aria-expanded="${open}"><div class="srow"><span class="sn">${esc(CAT_LABEL[k])}</span><span class="st" style="width:${Math.max(v/cmax*100,2)}%"></span><span class="sv">${eur(v)} <small>${pct} %</small></span></div></button>
-        ${open?`<div class="catpanel">${top.map(i=>`<div class="ci"><span>${esc(i.name)}${i.n>1?` ×${i.n}`:""}</span><span>${eur(i.c)}</span></div>`).join("")}
-          ${prevMonthsWithData?`<div class="ci avg"><span>Ø der ${prevMonthsWithData===1?"Vormonat":`letzten ${prevMonthsWithData} Monate`}</span><span>${eur(avg||0)}</span></div>`:""}</div>`:""}`;
-    }).join("")}
-    ${unsplit?`<div class="srow un"><span class="sn">Ohne Zuordnung</span><span class="st" style="width:${Math.max(unsplit/cmax*100,2)}%"></span><span class="sv">${eur(unsplit)}</span></div>`:""}</div>
-    ${est?`<p class="formhint cathint">${est===total?"Alle Beträge":"Teilweise"} geschätzt: Der Betrag eines Einkaufs wird nach typischen Preisen auf die abgehakten Artikel verteilt. Tippt auf eine Kategorie für Details.</p>`:`<p class="formhint cathint">Tippt auf eine Kategorie für Details.</p>`}`;
-  }
-
 
   // list
   $("cListTitle").textContent=`Einkäufe im ${MONTHS[costView.getMonth()]}`;
@@ -1684,14 +1693,14 @@ function renderCost(){
     return `<li class="ev exp" data-exp="${e.id}" tabindex="0" role="button" aria-label="Ausgabe ${eur(e.cents)} bearbeiten">
       <span class="bar"></span>
       <span class="tm">${WD[(d.getDay()+6)%7]}<small>${d.getDate()}.${d.getMonth()+1}.</small></span>
-      <div class="txt"><div class="name">${esc(meta)}</div>${(e.items.length||e.note)?`<div class="meta">${e.note?esc(e.note):`${e.items.length} Artikel`}</div>`:""}</div>
+      <div class="txt"><div class="name">${esc(meta)}</div><div class="meta">${[payerOf(e)?esc(labelFor(payerOf(e))):"ohne Angabe", e.note?esc(e.note):""].filter(Boolean).join(" · ")}</div></div>
       <span class="amt">${eur(e.cents)}</span>
     </li>`}).join("")}</ul>`
     : `<div class="hint">Noch keine Ausgaben in diesem Monat. Tippt auf „+ Ausgabe“, oder tragt den Betrag ein, wenn ihr nach dem Einkauf „Erledigte entfernen“ tippt.</div>`;
 }
 
 /* expense sheet */
-let editingExp=null, xStoreSel="", xDelArmed=false, xItems=[], openCat=null;
+let editingExp=null, xStoreSel="", xDelArmed=false, xItems=[], openCat=null, xKeepItems=null;
 function renderXItems(){
   $("xItemsWrap").hidden=!xItems.length;
   if (!xItems.length) return;
@@ -1744,7 +1753,9 @@ function openExp(e, opts={}){
   $("xStore").value = e && !STORES.includes(e.store) ? e.store : "";
   $("xDate").value = e ? e.date : todayIso;
   $("xNote").value = e ? e.note : (opts.note||"");
-  xItems = e ? e.items.map(i=>({...i})) : (opts.items||[]).map(i=>({name:i.name, cat:CAT_LABEL[i.cat]?i.cat:"sonst", cents:0, est:true})); renderXItems();
+  // estimated items (from the old category analysis) are no longer shown; they stay stored as they are
+  xKeepItems = e && isEst(e.items) ? e.items : null;
+  xItems = e && !xKeepItems ? e.items.map(i=>({...i})) : []; renderXItems();
   xPaidSel = e ? e.paidBy : (meKey()||""); renderXPaid();
   $("xErr").hidden=true;
   $("xDelete").hidden=!e; $("xDelete").textContent="Ausgabe löschen"; xDelArmed=false;
@@ -1771,7 +1782,7 @@ $("expForm").addEventListener("submit", async ev=>{
   if (cents>500000) return err("Der Betrag wirkt zu hoch. Prüfe das Komma.");
   const date=$("xDate").value; if(!date) return err("Wähle ein Datum.");
   const store=($("xStore").value.trim()||xStoreSel).slice(0,40);
-  const its = isEst(xItems) ? spread(cents, xItems) : xItems.map(i=>({name:i.name, cents:i.cents, cat:i.cat}));
+  const its = xKeepItems && !xItems.length ? xKeepItems : xItems.map(i=>({name:i.name, cents:i.cents, cat:i.cat}));
   const data={cents, store, date, note:$("xNote").value.trim().slice(0,200), items:its, paidBy:xPaidSel};
   const id=editingExp; closeExp();
   costView=parse(date); costView.setDate(1);
@@ -1791,7 +1802,7 @@ $("v-cost").addEventListener("click", e=>{
   if (e.target.closest("#setBudgetBtn")){ openSettings(); setTimeout(()=>$("sBudget").focus(),60); return; }
   const cb=e.target.closest("[data-cat]");
   if (cb){ openCat = openCat===cb.dataset.cat ? null : cb.dataset.cat; renderCost(); return; }
-  const bc=e.target.closest("[data-ym]");
+  const bc=e.target.closest("[data-ym]");  // chart bars and rows of the per-person table
   if (bc){ const [y,mo]=bc.dataset.ym.split("-").map(Number); costView=new Date(y,mo-1,1); renderCost(); return; }
   const r=e.target.closest("[data-exp]");
   if (r){ const x=expenses.find(x=>x.id===r.dataset.exp); if(x) openExp(x); }
