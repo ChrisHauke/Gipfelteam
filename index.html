@@ -281,8 +281,23 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .thead h2{font:800 1.25rem/1.15 var(--display);margin:0;overflow-wrap:anywhere}
 .thead .tdates{font-size:.85rem;color:var(--muted);margin-top:2px}
 .thead .tedit{border:0;background:none;color:var(--accent);font:600 .85rem var(--body);padding:4px 0 0;cursor:pointer}
-.settle{margin-top:4px;padding:12px 14px;border-radius:12px;background:var(--soft);font-size:.95rem}
-.settle b{font-variant-numeric:tabular-nums}
+.balbox{margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.balbox summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;font-weight:600}
+.balbox summary::-webkit-details-marker{display:none}
+.balbox summary::after{content:"›";color:var(--muted);font-size:1.2rem;transition:transform .15s}
+.balbox[open] summary::after{transform:rotate(90deg)}
+.balbox summary small{margin-left:auto;font:500 .85rem var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
+.balbody{padding:0 14px 14px;display:grid;gap:10px}
+.baltab{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+.baltab th{font:600 .7rem var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:right;padding:4px 0 6px}
+.baltab th:first-child,.baltab td:first-child{text-align:left}
+.baltab td{padding:7px 0;border-top:1px solid var(--line);text-align:right}
+.baltab td:first-child{font-weight:600}
+.balnote{margin:0;font-size:.85rem;color:var(--muted)}
+.exp.settle .bar{background:var(--line)}
+.exp.settle .name{color:var(--muted)}
+#xFor{grid-template-columns:repeat(2,minmax(0,1fr))}
+.partbox{display:grid;gap:10px;padding:12px;border-radius:12px;background:var(--soft)}
 .tday{font:600 .72rem var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px 4px}
 .tday:first-child{margin-top:0}
 /* tasks */
@@ -698,7 +713,7 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
   <form class="sheet" id="expForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="expHead">
     <h3 id="expHead">Neue Ausgabe</h3>
     <div class="field"><label for="xAmount">Betrag in €</label><input id="xAmount" class="amount-in" inputmode="decimal" placeholder="0,00"></div>
-    <div class="field"><label for="xStore" id="xStoreLbl">Laden</label>
+    <div class="field" id="xStoreWrap"><label for="xStore" id="xStoreLbl">Laden</label>
       <div class="storechips" id="xStores"></div>
       <input id="xStore" placeholder="oder Laden eintippen">
     </div>
@@ -708,9 +723,14 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
       <p class="formhint" id="xItemsSum"></p>
     </div>
     <div class="field"><label for="xNote">Notiz</label><input id="xNote" placeholder="optional"></div>
-    <div class="field"><span class="lbl">Bezahlt von</span><div class="seg payseg" id="xPaid"></div></div>
-    <div class="field" id="xForWrap" hidden><span class="lbl">Für wen</span><div class="seg" id="xFor"></div>
-      <p class="formhint">Standard ist „Beide“: die Ausgabe wird hälftig geteilt.</p></div>
+    <div class="field"><span class="lbl" id="xPaidLbl">Bezahlt von</span><div class="seg payseg" id="xPaid"></div>
+      <p class="formhint" id="xToHint" hidden></p></div>
+    <div class="field" id="xForWrap" hidden><span class="lbl">Aufteilung</span><div class="seg" id="xFor"></div>
+      <div class="partbox" id="xPart" hidden>
+        <div class="field"><label for="xShared">Davon gemeinsam geteilt (€)</label><input id="xShared" inputmode="decimal" placeholder="z. B. 400"></div>
+        <div class="field"><span class="lbl">Den Rest übernimmt</span><div class="seg" id="xRest" style="grid-template-columns:1fr 1fr"></div></div>
+      </div>
+      <p class="formhint" id="xForHint"></p></div>
     <p class="err" id="xErr" hidden></p>
     <div class="actions">
       <button class="primary" type="submit">Speichern</button>
@@ -1597,7 +1617,28 @@ function normExp(id,d){
   return {id, cents:Math.round(Number(d.cents)), store:String(d.store||"").slice(0,40),
     paidBy:(d.paidBy==="a"||d.paidBy==="b")?d.paidBy:"", createdBy:String(d.createdBy||""),
     date:d.date, note:String(d.note||""), items:normItems(d.items), at:Number(d.at)||0,
-    trip:typeof d.trip==="string"?d.trip.slice(0,60):"", forWho:(d.forWho==="a"||d.forWho==="b")?d.forWho:""};
+    trip:typeof d.trip==="string"?d.trip.slice(0,60):"", forWho:(d.forWho==="a"||d.forWho==="b")?d.forWho:"",
+    settle:d.settle===true, shared:Number.isFinite(Number(d.shared))&&d.shared!==""&&d.shared!==null?Math.max(0,Math.round(Number(d.shared))):null,
+    restBy:(d.restBy==="a"||d.restBy==="b")?d.restBy:""};
+}
+// what each person carries of one expense: half of the shared part, plus anything only for them
+function shareOf(e){
+  if (e.forWho) return {a:e.forWho==="a"?e.cents:0, b:e.forWho==="b"?e.cents:0};
+  if (e.shared!==null && e.shared<e.cents && e.restBy){
+    const r=e.cents-e.shared, h=e.shared/2;
+    return {a:h+(e.restBy==="a"?r:0), b:h+(e.restBy==="b"?r:0)};
+  }
+  return {a:e.cents/2, b:e.cents/2};
+}
+const other = w => w==="a" ? "b" : "a";
+function tripBalance(tid){
+  const all=expenses.filter(e=>e.trip===tid), exp=all.filter(e=>!e.settle), settles=all.filter(e=>e.settle);
+  const paid={a:0,b:0,u:0}, cnt={a:0,b:0,u:0}, share={a:0,b:0}, sent={a:0,b:0};
+  for (const e of exp){ const p=payerOf(e)||"u"; paid[p]+=e.cents; cnt[p]++; const s=shareOf(e); share.a+=s.a; share.b+=s.b; }
+  for (const e of settles){ const p=payerOf(e); if (p) sent[p]+=e.cents; }
+  // >0: A has carried more than their part (B's side is the mirror image)
+  const netA=Math.round(paid.a-share.a+sent.a-sent.b);
+  return {all, exp, settles, paid, cnt, share, sent, netA, total:exp.reduce((t,e)=>t+e.cents,0)};
 }
 /* Trips: one doc per trip, stored in the same "expenses" collection as {kind:"trip", name, from, to, budget}
    (no new Firestore collection, so the existing rules apply). Trip expenses are normal expenses with trip:<tripId>;
@@ -1779,11 +1820,11 @@ function renderTrips(){
   $("tripBar").innerHTML=list.map(x=>`<button type="button" data-trip="${esc(x.id)}" aria-pressed="${!!t&&x.id===t.id}">${esc(x.name)}</button>`).join("")
     + `<button type="button" class="tnew" id="tripNew">+ Reise</button>`;
   if (!t){
-    $("tripBody").innerHTML=`<div class="hint" style="margin-top:14px">Legt für jeden Urlaub eine eigene Reise an. Dort sammelt ihr alle Kosten, seht, wer was gezahlt hat, und wer am Ende wem noch etwas schuldet.<div style="margin-top:12px"><button class="small-primary" type="button" id="tripFirst">Erste Reise anlegen</button></div></div>`;
+    $("tripBody").innerHTML=`<div class="hint" style="margin-top:14px">Legt für jeden Urlaub eine eigene Reise an. Dort sammelt ihr alle Kosten und seht, wer was bezahlt hat.<div style="margin-top:12px"><button class="small-primary" type="button" id="tripFirst">Erste Reise anlegen</button></div></div>`;
     return;
   }
-  const exp=expenses.filter(e=>e.trip===t.id).sort((a,b)=>b.date.localeCompare(a.date)||b.at-a.at);
-  const total=exp.reduce((s,e)=>s+e.cents,0);
+  const bal=tripBalance(t.id), {exp,paid,cnt,total}=bal;
+  const all=[...bal.all].sort((a,b)=>b.date.localeCompare(a.date)||b.at-a.at);
 
   // budget
   let budgetHtml="";
@@ -1801,26 +1842,29 @@ function renderTrips(){
     <div class="stat"><div class="v">${total?eurR(Math.round(total/2)):"–"}</div><div class="k">pro Person</div></div>
     <div class="stat"><div class="v">${exp.length}</div><div class="k">${exp.length===1?"Ausgabe":"Ausgaben"}</div></div></div>`;
 
-  // who paid + settle-up (shared costs 50/50, "für"-costs fully to that person)
-  const paid={a:0,b:0,u:0}, cnt={a:0,b:0,u:0}, owe={a:0,b:0};
-  for (const e of exp){
-    const p=payerOf(e)||"u"; paid[p]+=e.cents; cnt[p]++;
-    if (e.forWho) owe[e.forWho]+=e.cents; else { owe.a+=e.cents/2; owe.b+=e.cents/2; }
-  }
+  // who paid; the balance sits folded away underneath
   let whoHtml="";
   if (total){
     const max=Math.max(paid.a,paid.b,paid.u,1);
     const row=(k,label,v,n)=>`<div class="wrow ${k}"><div class="wtop"><span class="wn">${esc(label)}</span><span class="wv">${eur(v)}</span></div>
       <div class="wtrack"><span style="width:${v?Math.max(v/max*100,2):0}%"></span></div>
       <div class="wsub">${Math.round(v/total*100)} % · ${n} ${n===1?"Ausgabe":"Ausgaben"}</div></div>`;
-    const netA=Math.round(paid.a-owe.a);   // >0: B owes A
-    let settle;
-    if (paid.u) settle=`Bei ${cnt.u} ${cnt.u===1?"Ausgabe":"Ausgaben"} fehlt, wer bezahlt hat. Tragt das nach, dann stimmt der Ausgleich.`;
-    else if (Math.abs(netA)<1) settle=`Alles ausgeglichen. Keiner schuldet dem anderen etwas.`;
-    else settle = netA>0 ? `<b>${esc(nameB())}</b> gibt <b>${esc(nameA())}</b> noch <b>${eur(netA)}</b>.` : `<b>${esc(nameA())}</b> gibt <b>${esc(nameB())}</b> noch <b>${eur(-netA)}</b>.`;
+    const net=bal.netA, even=Math.abs(net)<1;
+    const sgn=v=>Math.abs(v)<1?"±0,00 €":(v>0?"+":"−")+eur(Math.abs(v));
+    const stand={a:net, b:-net};
+    const sentRow = bal.settles.length ? `<tr><td colspan="4" style="font-weight:400;color:var(--muted);text-align:left">inkl. ${bal.settles.length} ${bal.settles.length===1?"Ausgleichszahlung":"Ausgleichszahlungen"}</td></tr>` : "";
+    const tr=w=>`<tr><td>${esc(labelFor(w))}</td><td>${eur(paid[w])}</td><td>${eur(Math.round(bal.share[w]))}</td><td>${sgn(stand[w])}</td></tr>`;
+    const note = paid.u ? `Bei ${cnt.u} ${cnt.u===1?"Ausgabe":"Ausgaben"} fehlt noch, wer bezahlt hat.`
+      : even ? `Ihr habt beide genau euren Anteil getragen.`
+      : `${esc(labelFor(net>0?"a":"b"))} hat ${eur(Math.abs(net))} mehr als den eigenen Anteil übernommen.`;
     whoHtml=`<div class="sec-title" style="margin-top:24px">Wer hat bezahlt</div>
-      <div class="stores who">${row("sa",nameA(),paid.a,cnt.a)}${row("sb",nameB(),paid.b,cnt.b)}${paid.u?row("su","Ohne Angabe",paid.u,cnt.u):""}
-      <div class="settle">${settle}</div></div>`;
+      <div class="stores who">${row("sa",nameA(),paid.a,cnt.a)}${row("sb",nameB(),paid.b,cnt.b)}${paid.u?row("su","Ohne Angabe",paid.u,cnt.u):""}</div>
+      <details class="balbox" id="balBox"${balOpen?" open":""}><summary>Ausgleich <small>${even?"ausgeglichen":"Differenz "+eur(Math.abs(net))}</small></summary>
+        <div class="balbody">
+          <table class="baltab"><thead><tr><th></th><th>Bezahlt</th><th>Anteil</th><th>Stand</th></tr></thead><tbody>${tr("a")}${tr("b")}${sentRow}</tbody></table>
+          <p class="balnote">${note}</p>
+          <div><button class="small-primary" type="button" id="tripSettle">Ausgleichszahlung eintragen</button></div>
+        </div></details>`;
   }
   // by category
   const per={};
@@ -1829,13 +1873,20 @@ function renderTrips(){
   const catHtml = rows.length ? `<div class="sec-title" style="margin-top:24px">Nach Kategorie</div><div class="stores">${rows.map(([k,v])=>`
     <div class="srow"><span class="sn">${esc(k)}</span><span class="st" style="width:${Math.max(v/smax*100,2)}%"></span><span class="sv">${eur(v)} · ${Math.round(v/total*100)} %</span></div>`).join("")}</div>` : "";
   // list
-  const listHtml = exp.length ? `<div class="sec-title" style="margin-top:24px">Alle Ausgaben</div><ul>${exp.map(e=>{
-    const d=parse(e.date);
-    const meta=[payerOf(e)?`bezahlt von ${esc(labelFor(payerOf(e)))}`:"ohne Angabe", e.forWho?`nur für ${esc(labelFor(e.forWho))}`:"", e.note?esc(e.note):""].filter(Boolean).join(" · ");
-    return `<li class="ev exp" data-exp="${e.id}" tabindex="0" role="button" aria-label="Ausgabe ${eur(e.cents)} bearbeiten">
+  const splitTxt=e=>{
+    if (e.forWho) return `nur für ${esc(labelFor(e.forWho))}`;
+    if (e.shared!==null && e.shared<e.cents && e.restBy) return `${eur(e.shared)} geteilt, ${eur(e.cents-e.shared)} übernimmt ${esc(labelFor(e.restBy))}`;
+    return "";
+  };
+  const listHtml = all.length ? `<div class="sec-title" style="margin-top:24px">Alle Ausgaben</div><ul>${all.map(e=>{
+    const d=parse(e.date), p=payerOf(e);
+    const name = e.settle ? "Ausgleichszahlung" : esc(e.store||"Ausgabe");
+    const meta = e.settle ? [p?`${esc(labelFor(p))} an ${esc(labelFor(other(p)))}`:"", e.note?esc(e.note):""].filter(Boolean).join(" · ")
+      : [p?`bezahlt von ${esc(labelFor(p))}`:"ohne Angabe", splitTxt(e), e.note?esc(e.note):""].filter(Boolean).join(" · ");
+    return `<li class="ev exp${e.settle?" settle":""}" data-exp="${e.id}" tabindex="0" role="button" aria-label="${e.settle?"Ausgleichszahlung":"Ausgabe"} ${eur(e.cents)} bearbeiten">
       <span class="bar"></span>
       <span class="tm">${WD[(d.getDay()+6)%7]}<small>${d.getDate()}.${d.getMonth()+1}.</small></span>
-      <div class="txt"><div class="name">${esc(e.store||"Ausgabe")}</div><div class="meta">${meta}</div></div>
+      <div class="txt"><div class="name">${name}</div><div class="meta">${meta}</div></div>
       <span class="amt">${eur(e.cents)}</span></li>`;}).join("")}</ul>`
     : `<div class="hint" style="margin-top:16px">Noch keine Ausgaben für diese Reise. Tippt auf „+ Ausgabe“.</div>`;
 
@@ -1847,7 +1898,9 @@ function renderTrips(){
       <div class="big money">${eur(total)}</div>
       ${budgetHtml}${stats}
     </div>${whoHtml}${catHtml}${listHtml}`;
+  const bb=$("balBox"); if (bb) bb.addEventListener("toggle", ()=>{ balOpen=bb.open; });
 }
+let balOpen=false;
 
 /* trip sheet */
 let editingTrip=null, trDelArmed=false;
@@ -1939,12 +1992,32 @@ let xPaidSel="";
 function renderXPaid(){
   $("xPaid").innerHTML=[["a",nameA(),"c-a"],["b",nameB(),"c-b"]].map(([k,l,c])=>`<button type="button" class="${c}" data-paid="${k}" aria-pressed="${xPaidSel===k}">${esc(l)}</button>`).join("");
 }
-let xForSel="";
+let xForSel="", xRestSel="", xSettle=false;
 function renderXFor(){
-  $("xFor").innerHTML=[["","Beide","c-both"],["a",nameA(),"c-a"],["b",nameB(),"c-b"]].map(([k,l,c])=>`<button type="button" class="${c}" data-for="${k}" aria-pressed="${xForSel===k}">${esc(l)}</button>`).join("");
+  $("xFor").innerHTML=[["","Hälftig","c-both"],["part","Teilweise","c-both"],["a","Nur "+nameA(),"c-a"],["b","Nur "+nameB(),"c-b"]].map(([k,l,c])=>`<button type="button" class="${c}" data-for="${k}" aria-pressed="${xForSel===k}">${esc(l)}</button>`).join("");
+  $("xPart").hidden = xForSel!=="part";
+  $("xRest").innerHTML=[["a",nameA(),"c-a"],["b",nameB(),"c-b"]].map(([k,l,c])=>`<button type="button" class="${c}" data-rest="${k}" aria-pressed="${xRestSel===k}">${esc(l)}</button>`).join("");
+  const tot=parseEuro($("xAmount").value), sh=parseEuro($("xShared").value);
+  let hint="";
+  if (xForSel==="") hint="Die Ausgabe wird zwischen euch beiden hälftig geteilt.";
+  else if (xForSel==="part"){
+    if (tot && sh!==null && sh<tot && xRestSel) hint=`${eur(sh)} werden hälftig geteilt (je ${eur(Math.round(sh/2))}), ${eur(tot-sh)} übernimmt ${esc(labelFor(xRestSel))} allein.`;
+    else hint="Zum Beispiel 500 € gesamt, davon 400 € geteilt: die restlichen 100 € trägt eine Person allein.";
+  } else hint=`Die Ausgabe zählt ganz für ${esc(labelFor(xForSel))}.`;
+  $("xForHint").innerHTML=hint;
 }
-$("xFor").addEventListener("click", e=>{ const b=e.target.closest("[data-for]"); if(!b) return; xForSel=b.dataset.for; renderXFor(); });
-$("xPaid").addEventListener("click", e=>{ const b=e.target.closest("[data-paid]"); if(!b) return; xPaidSel = xPaidSel===b.dataset.paid ? "" : b.dataset.paid; renderXPaid(); });
+function renderXTo(){
+  const p=xPaidSel;
+  $("xToHint").hidden=!xSettle;
+  if (xSettle) $("xToHint").textContent = p ? `geht an ${labelFor(other(p))}` : "Wähle, wer die Zahlung macht.";
+}
+$("xFor").addEventListener("click", e=>{ const b=e.target.closest("[data-for]"); if(!b) return; xForSel=b.dataset.for;
+  if (xForSel==="part" && !xRestSel) xRestSel = xPaidSel || meKey() || "a";
+  renderXFor(); if (xForSel==="part" && !$("xShared").value) $("xShared").focus(); });
+$("xRest").addEventListener("click", e=>{ const b=e.target.closest("[data-rest]"); if(!b) return; xRestSel=b.dataset.rest; renderXFor(); });
+$("xShared").addEventListener("input", renderXFor);
+$("xAmount").addEventListener("input", ()=>{ if (xTrip && !xSettle) renderXFor(); });
+$("xPaid").addEventListener("click", e=>{ const b=e.target.closest("[data-paid]"); if(!b) return; xPaidSel = (xPaidSel===b.dataset.paid && !xSettle) ? "" : b.dataset.paid; renderXPaid(); renderXTo(); });
 let xTrip="";
 function renderXStores(){
   let list;
@@ -1960,11 +2033,16 @@ function renderXStores(){
 function openExp(e, opts={}){
   editingExp = e ? e.id : null;
   xTrip = e ? e.trip : (opts.trip||"");
+  xSettle = e ? e.settle : !!opts.settle;
   const tr = xTrip ? trips.find(t=>t.id===xTrip) : null;
-  $("expHead").textContent = e ? "Ausgabe bearbeiten" : opts.afterShop ? "Was hat der Einkauf gekostet?" : tr ? `Ausgabe · ${tr.name}` : "Neue Ausgabe";
+  $("expHead").textContent = xSettle ? (e ? "Ausgleichszahlung bearbeiten" : "Ausgleichszahlung") : e ? "Ausgabe bearbeiten" : opts.afterShop ? "Was hat der Einkauf gekostet?" : tr ? `Ausgabe · ${tr.name}` : "Neue Ausgabe";
   $("xStoreLbl").textContent = xTrip ? "Kategorie" : "Laden";
   $("xStore").placeholder = xTrip ? "oder eigene Kategorie eintippen" : "oder Laden eintippen";
-  $("xForWrap").hidden = !xTrip; xForSel = e ? e.forWho : ""; renderXFor();
+  $("xStoreWrap").hidden = xSettle; $("xPaidLbl").textContent = xSettle ? "Von" : "Bezahlt von";
+  $("xForWrap").hidden = !xTrip || xSettle;
+  xForSel = e ? (e.forWho || (e.shared!==null && e.shared<e.cents && e.restBy ? "part" : "")) : "";
+  xRestSel = e && e.restBy ? e.restBy : "";
+  $("xShared").value = e && xForSel==="part" ? (e.shared/100).toFixed(2).replace(".",",") : "";
   $("xCancel").textContent = opts.afterShop ? "Überspringen" : "Abbrechen";
   $("xAmount").value = e ? (e.cents/100).toFixed(2).replace(".",",") : "";
   xStoreSel = e ? e.store : "";
@@ -1974,9 +2052,11 @@ function openExp(e, opts={}){
   // estimated items (from the old category analysis) are no longer shown; they stay stored as they are
   xKeepItems = e && isEst(e.items) ? e.items : null;
   xItems = e && !xKeepItems ? e.items.map(i=>({...i})) : []; renderXItems();
-  xPaidSel = e ? e.paidBy : (meKey()||""); renderXPaid();
+  xPaidSel = e ? e.paidBy : (opts.payer || meKey()||""); renderXPaid();
+  if (opts.cents) $("xAmount").value=(opts.cents/100).toFixed(2).replace(".",",");
+  renderXFor(); renderXTo();
   $("xErr").hidden=true;
-  $("xDelete").hidden=!e; $("xDelete").textContent="Ausgabe löschen"; xDelArmed=false;
+  $("xDelete").hidden=!e; $("xDelete").textContent=xSettle?"Zahlung löschen":"Ausgabe löschen"; xDelArmed=false;
   renderXStores();
   $("expScrim").hidden=false;
   setTimeout(()=>$("xAmount").focus(),60);
@@ -2002,7 +2082,19 @@ $("expForm").addEventListener("submit", async ev=>{
   const store=($("xStore").value.trim()||xStoreSel).slice(0,40);
   const its = xKeepItems && !xItems.length ? xKeepItems : xItems.map(i=>({name:i.name, cents:i.cents, cat:i.cat}));
   const data={cents, store, date, note:$("xNote").value.trim().slice(0,200), items:its, paidBy:xPaidSel};
-  if (xTrip){ data.trip=xTrip; data.forWho=xForSel; }
+  if (xSettle){
+    if (!xPaidSel) return err("Wähle, wer die Zahlung macht.");
+    Object.assign(data,{trip:xTrip, settle:true, store:"Ausgleich", forWho:"", shared:null, restBy:"", items:[]});
+  } else if (xTrip){
+    data.trip=xTrip; data.forWho = xForSel==="a"||xForSel==="b" ? xForSel : ""; data.shared=null; data.restBy="";
+    if (xForSel==="part"){
+      const sh=parseEuro($("xShared").value);
+      if (sh===null) return err("Gib ein, wie viel davon gemeinsam geteilt wird.");
+      if (sh>=cents) return err("Der geteilte Teil muss kleiner sein als der Gesamtbetrag. Sonst wähle „Hälftig“.");
+      if (!xRestSel) return err("Wähle, wer den Rest übernimmt.");
+      data.shared=sh; data.restBy=xRestSel;
+    }
+  }
   const id=editingExp; closeExp();
   if (!xTrip){ costView=parse(date); costView.setDate(1); }
   if (local){
@@ -2022,6 +2114,8 @@ $("cTrip").addEventListener("click", e=>{
   if (e.target.closest("#tripNew,#tripFirst")) return openTrip(null);
   if (e.target.closest("#tripEdit")){ const t=curTrip(); if(t) openTrip(t); return; }
   if (e.target.closest("#tripExp")){ const t=curTrip(); if(t) openExp(null,{trip:t.id}); return; }
+  if (e.target.closest("#tripSettle")){ const t=curTrip(); if(!t) return; const n=tripBalance(t.id).netA;
+    openExp(null,{trip:t.id, settle:true, payer: Math.abs(n)>=1 ? (n>0?"b":"a") : "", cents: Math.abs(n)>=1 ? Math.abs(n) : 0}); return; }
 });
 $("cPrev").addEventListener("click", ()=>{ costView.setMonth(costView.getMonth()-1); renderCost(); });
 $("cNext").addEventListener("click", ()=>{ if(ymKey(costView)!==ymKey(new Date())){ costView.setMonth(costView.getMonth()+1); renderCost(); } });
