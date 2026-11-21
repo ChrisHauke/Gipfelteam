@@ -135,6 +135,9 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;font-size:.85rem;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:10px;height:10px;border-radius:50%;flex:none}
+.c-hol{--c:var(--danger);--cs:color-mix(in srgb,var(--danger) 13%,transparent)}
+.dnum.hol:not(.today){color:var(--danger);font-weight:700}
+.holnote{white-space:pre-line;margin:0;padding:12px 14px;border-radius:12px;background:var(--soft);font-size:.95rem;line-height:1.45}
 .c-a{--c:var(--pa);--cs:var(--pa-soft)} .c-b{--c:var(--pb);--cs:var(--pb-soft)} .c-both{--c:var(--pab);--cs:var(--pab-soft)}
 .sw{background:var(--c)}
 .cal{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
@@ -675,6 +678,19 @@ li.done .name{text-decoration:line-through;color:var(--muted)}
   </nav>
 </div>
 
+<!-- holiday info sheet -->
+<div class="scrim" id="holScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="holHead">
+    <h3 id="holHead">Feiertag</h3>
+    <p class="formhint" id="holDate" style="margin-top:-6px"></p>
+    <div class="field"><span class="lbl">Notiz</span><p class="holnote" id="holNote"></p></div>
+    <div class="actions">
+      <button class="primary" type="button" id="holNew">Termin an diesem Tag</button>
+      <button class="secondary" type="button" id="holClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
 <!-- event sheet -->
 <div class="scrim" id="evScrim" hidden>
   <form class="sheet" id="evForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="evHead">
@@ -916,7 +932,7 @@ function meKey(){
   return localMe;
 }
 function labelFor(w){ return w==="a" ? nameA() : w==="b" ? nameB() : "Beide"; }
-function affectsMe(w){ const m=meKey(); return !m || w==="both" || w===m; }
+function affectsMe(w){ const m=meKey(); return !m || w==="both" || w==="hol" || w===m; }
 const myBy = () => myId || meKey() || "";
 function whoOfUid(by){
   if (!by) return "";
@@ -1104,8 +1120,49 @@ function occStarts(e, from, to){
   }
   return out;
 }
+/* German public holidays (computed, not stored). Sources: Feiertagsgesetze der Länder. */
+const ALL_STATES="bundesweit, in allen 16 Bundesländern";
+function easter(y){ const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+  h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  return iso(new Date(y,mo-1,da)); }
+const holCache={};
+function holidaysOf(y){
+  if (holCache[y]) return holCache[y];
+  const E=easter(y), d=(m,dd)=>`${y}-${pad(m)}-${pad(dd)}`;
+  const nov23=new Date(y,10,23), bb=new Date(nov23); bb.setDate(23-(((nov23.getDay()-3)+7)%7||7));
+  const L=[
+    [d(1,1),"Neujahr",ALL_STATES],
+    [d(1,6),"Heilige Drei Könige","Baden-Württemberg, Bayern, Sachsen-Anhalt"],
+    [d(3,8),"Internationaler Frauentag","Berlin, Mecklenburg-Vorpommern"],
+    [addDays(E,-2),"Karfreitag",ALL_STATES],
+    [E,"Ostersonntag","Brandenburg, Hessen",["Fällt immer auf einen Sonntag."]],
+    [addDays(E,1),"Ostermontag",ALL_STATES],
+    [d(5,1),"Tag der Arbeit",ALL_STATES],
+    [addDays(E,39),"Christi Himmelfahrt",ALL_STATES],
+    [addDays(E,49),"Pfingstsonntag","Brandenburg, Hessen",["Fällt immer auf einen Sonntag."]],
+    [addDays(E,50),"Pfingstmontag",ALL_STATES],
+    [addDays(E,60),"Fronleichnam","Baden-Württemberg, Bayern, Hessen, Nordrhein-Westfalen, Rheinland-Pfalz, Saarland",["Außerdem in einzelnen Gemeinden in Sachsen und Thüringen."]],
+    [d(8,8),"Augsburger Friedensfest","nur in der Stadt Augsburg (Bayern)"],
+    [d(8,15),"Mariä Himmelfahrt","Saarland",["In Bayern nur in Gemeinden mit überwiegend katholischer Bevölkerung (die meisten Gemeinden)."]],
+    [d(9,20),"Weltkindertag","Thüringen"],
+    [d(10,3),"Tag der Deutschen Einheit",ALL_STATES],
+    [d(10,31),"Reformationstag","Brandenburg, Bremen, Hamburg, Mecklenburg-Vorpommern, Niedersachsen, Sachsen, Sachsen-Anhalt, Schleswig-Holstein, Thüringen"],
+    [d(11,1),"Allerheiligen","Baden-Württemberg, Bayern, Nordrhein-Westfalen, Rheinland-Pfalz, Saarland"],
+    [iso(bb),"Buß- und Bettag","Sachsen"],
+    [d(12,25),"1. Weihnachtstag",ALL_STATES],
+    [d(12,26),"2. Weihnachtstag",ALL_STATES],
+  ];
+  if (y===2025) L.push([d(5,8),"Tag der Befreiung","Berlin (nur 2025)"]);
+  return holCache[y]=L.map(([date,title,where,extra])=>({id:"hol:"+date+":"+title, hol:true, title, date, endDate:"", allDay:true, start:"", end:"", who:"hol",
+    place:"", repeat:"", skip:[], where, nat:where===ALL_STATES,
+    note:`Gesetzlicher Feiertag für Arbeitnehmer: ${where}.`+(extra?"\n"+extra.join("\n"):"")}));
+}
+function holidaysIn(from,to){
+  const out=[]; for (let y=+from.slice(0,4); y<=+to.slice(0,4); y++) for (const h of holidaysOf(y)) if (h.date>=from && h.date<=to) out.push({...h, occ:h.date});
+  return out;
+}
 function expand(from,to){
-  const out=[];
+  const out=holidaysIn(from,to);
   for (const e of events){
     const dur=e.endDate?dayDiff(e.date,e.endDate):0;
     for (const st of occStarts(e,from,to)) out.push({...e, date:st, endDate:dur?addDays(st,dur):"", occ:st});
@@ -1138,6 +1195,13 @@ function renderLegend(){
 }
 
 function evRow(e, showDate){
+  if (e.hol){
+    const tm = showDate ? `${esc(shortDate(e.date))}<small>Feiertag</small>` : `Feiertag`;
+    return `<li class="ev c-hol mine" data-ev="${esc(e.id)}" data-occ="${e.date}" tabindex="0" role="button" aria-label="${esc(e.title)}, Feiertag, Details">
+      <span class="bar"></span><span class="tm">${tm}</span>
+      <div class="txt"><div class="name">${esc(e.title)}</div><div class="meta">${e.nat?"gesetzlich bundesweit":"gesetzlich nur regional"}</div></div>
+      <span class="who">${e.nat?"DE":"Regional"}</span></li>`;
+  }
   const mine = affectsMe(e.who);
   const time = e.allDay ? `ganztägig` : (e.start||"") + (e.end?`<small>bis ${esc(e.end)}</small>`:"");
   let tm = showDate ? `${esc(shortDate(e.date))}<small>${e.allDay?"ganztägig":esc(e.start)+(e.end?"–"+esc(e.end):"")}</small>` : time;
@@ -1189,7 +1253,8 @@ function renderCal(){
       const out=parse(s).getMonth()!==view.getMonth();
       const n=inst.filter(e=>onDay(e,s)).length;
       cells+=`<button type="button" class="dcell ${s===sel?"sel":""}" style="grid-column:${i+1}" data-day="${s}" aria-label="${esc(longDate(s))}${n?`, ${n} ${n===1?"Termin":"Termine"}`:""}"></button>`;
-      cells+=`<span class="dnum ${out?"out":""} ${s===todayIso?"today":""} ${s===sel?"sel":""}" style="grid-column:${i+1}">${parse(s).getDate()}</span>`;
+      const isHol=inst.some(e=>e.hol && e.date===s);
+      cells+=`<span class="dnum ${out?"out":""} ${s===todayIso?"today":""} ${s===sel?"sel":""} ${isHol?"hol":""}" style="grid-column:${i+1}">${parse(s).getDate()}</span>`;
       if (hidden[i]) cells+=`<span class="more" style="grid-column:${i+1};grid-row:${L+2}">+${hidden[i]}</span>`;
     });
     for (const p of placed){
@@ -1203,7 +1268,7 @@ function renderCal(){
   const dayEv=expand(sel,sel).sort(byTime);
   $("dayList").innerHTML = dayEv.length ? `<ul>${dayEv.map(e=>evRow(e,false)).join("")}</ul>` : `<div class="hint">Noch nichts geplant an diesem Tag.</div>`;
   const seen=new Set();
-  const up=expand(todayIso, addDays(todayIso,400)).filter(e=>lastDay(e)>=todayIso).sort(byTime)
+  const up=expand(todayIso, addDays(todayIso,400)).filter(e=>lastDay(e)>=todayIso && (!e.hol || e.date<=addDays(todayIso,30))).sort(byTime)
     .filter(e=>{ if(seen.has(e.id)) return false; seen.add(e.id); return true; }).slice(0,10);
   $("upcoming").innerHTML = up.length ? `<ul>${up.map(e=>evRow(e,true)).join("")}</ul>` : `<div class="hint">Keine anstehenden Termine. Tippt auf „+ Termin“, um den ersten einzutragen.</div>`;
 }
@@ -1228,6 +1293,7 @@ function openEv(e, occ){
   $("fAllDay").checked = e?e.allDay:false;
   $("fStart").value = e?e.start:"";
   $("fEnd").value = e?e.end:"";
+  fPrevStart = e?e.start:"";
   $("fPlace").value = e?e.place:"";
   $("fNote").value = e?e.note:"";
   $("fErr").hidden=true;
@@ -1247,11 +1313,22 @@ $("fDeleteOne").addEventListener("click", async ()=>{
   if (local){ ev.skip=skip; lsSet("termine",events); renderCal(); return; }
   try{ await evCol.doc(id).update({skip}); }catch(x){ showErr(x); }
 });
-$("fStart").addEventListener("change", ()=>{
-  const s=$("fStart").value; if(!s || $("fEnd").value) return;
-  const [h,m]=s.split(":").map(Number); const t=Math.min(h*60+m+60, 23*60+59);
-  $("fEnd").value=`${pad(Math.floor(t/60))}:${pad(t%60)}`;
-});
+// End time follows the start: a new start keeps the current duration (default 1 h); the end never sits before the start.
+const toMin=v=>{ const [h,m]=v.split(":").map(Number); return h*60+m; };
+const fromMin=t=>`${pad(Math.floor(t/60))}:${pad(t%60)}`;
+let fPrevStart="";
+function syncEnd(){
+  const s=$("fStart").value, en=$("fEnd").value;
+  if (!s){ fPrevStart=""; return; }
+  let dur=60;
+  if (en && fPrevStart && toMin(en)>toMin(fPrevStart)) dur=toMin(en)-toMin(fPrevStart);
+  if (!en || !fPrevStart || toMin(en)<=toMin(s) || s!==fPrevStart) $("fEnd").value=fromMin(Math.min(toMin(s)+dur, 23*60+59));
+  fPrevStart=s;
+}
+$("fStart").addEventListener("input", syncEnd);
+$("fStart").addEventListener("change", syncEnd);
+$("fEnd").addEventListener("change", ()=>{ const s=$("fStart").value, en=$("fEnd").value;
+  if (s && en && toMin(en)<=toMin(s)) $("fEnd").value=fromMin(Math.min(toMin(s)+60, 23*60+59)); });
 $("fCancel").addEventListener("click", closeEv);
 $("evScrim").addEventListener("click", e=>{ if(e.target===$("evScrim")) closeEv(); });
 let delArmed=false;
@@ -1543,9 +1620,24 @@ $("grid").addEventListener("touchend", e=>{
 $("grid").addEventListener("click", e=>{ if(swUsed){ e.stopPropagation(); e.preventDefault(); } }, true);
 // Tap on a day opens a new event for that day; taps on an event bar are handled below and open that event.
 $("grid").addEventListener("click", e=>{ if(e.target.closest("[data-ev]")) return; const b=e.target.closest("[data-day]"); if(!b) return; sel=b.dataset.day; renderCal(); openEv(null); });
-function evFromTarget(t){ const r=t.closest("[data-ev]"); if(!r) return null; const ev=events.find(x=>x.id===r.dataset.ev); return ev ? {ev, occ:r.dataset.occ} : null; }
-$("v-cal").addEventListener("click", e=>{ const f=evFromTarget(e.target); if(f) openEv(f.ev, f.occ); });
-$("v-cal").addEventListener("keydown", e=>{ if(e.key!=="Enter"&&e.key!==" ") return; const f=evFromTarget(e.target); if(f){ e.preventDefault(); openEv(f.ev, f.occ);} });
+function evFromTarget(t){ const r=t.closest("[data-ev]"); if(!r) return null;
+  if (r.dataset.ev.startsWith("hol:")){ const h=holidaysOf(+r.dataset.occ.slice(0,4)).find(x=>x.id===r.dataset.ev); return h ? {ev:h, occ:h.date} : null; }
+  const ev=events.find(x=>x.id===r.dataset.ev); return ev ? {ev, occ:r.dataset.occ} : null; }
+function openItem(f){ if (f.ev.hol) openHol(f.ev); else openEv(f.ev, f.occ); }
+$("v-cal").addEventListener("click", e=>{ const f=evFromTarget(e.target); if(f) openItem(f); });
+$("v-cal").addEventListener("keydown", e=>{ if(e.key!=="Enter"&&e.key!==" ") return; const f=evFromTarget(e.target); if(f){ e.preventDefault(); openItem(f);} });
+let holDay=null;
+function openHol(h){
+  holDay=h.date;
+  $("holHead").textContent=h.title;
+  $("holDate").textContent=parse(h.date).toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  $("holNote").textContent=h.note;
+  $("holScrim").hidden=false;
+}
+const closeHol=()=>{ $("holScrim").hidden=true; };
+$("holClose").addEventListener("click", closeHol);
+$("holScrim").addEventListener("click", e=>{ if(e.target===$("holScrim")) closeHol(); });
+$("holNew").addEventListener("click", ()=>{ closeHol(); sel=holDay; renderCal(); openEv(null); });
 
 /* settings / who am I */
 let sMe=null;
